@@ -1,0 +1,2 @@
+# server
+a Gnamma server  
