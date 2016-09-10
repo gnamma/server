@@ -31,10 +31,19 @@ func (n *Networker) Handle(conn net.Conn) {
 			log.Println("Unable to sustain connection command:", err)
 			return
 		}
+
+		return
+	} else if com.Command == "ping" {
+		err = n.ping(buf, conn)
+		if err != nil {
+			log.Println("Unable to reply to ping:", err)
+			return
+		}
+
+		return
 	}
 
 	log.Println("Unknown command:", com.Command)
-	return
 }
 
 func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
@@ -46,6 +55,29 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 	}
 
 	conn.Write([]byte(fmt.Sprintf("Hello, %v!", c.Username)))
+
+	return nil
+}
+
+func (n *Networker) ping(buf *bytes.Buffer, conn net.Conn) error {
+	pi := Ping{}
+	po := Pong{}
+
+	err := json.NewDecoder(buf).Decode(&pi)
+	if err != nil {
+		return err
+	}
+
+	po.Command = "pong"
+	po.ReceivedAt = pi.SentAt
+	po.SentAt = 0 // TODO: Set to now
+
+	out, err := json.Marshal(po)
+	if err != nil {
+		return err
+	}
+
+	conn.Write(out)
 
 	return nil
 }
@@ -67,5 +99,5 @@ func (n *Networker) peek(conn net.Conn) (Communication, *bytes.Buffer, error) {
 		return com, cmd, err
 	}
 
-	return com, cmd, nil
+	return com, buf, nil
 }
