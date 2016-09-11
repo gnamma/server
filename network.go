@@ -40,7 +40,7 @@ func (n *Networker) Handle(conn net.Conn) {
 		return
 	}
 
-	if com.Command != "connection" {
+	if com.Command != ConnectRequestCmd {
 		fmt.Println("Unknown command:", com.Command)
 		return
 	}
@@ -53,7 +53,7 @@ func (n *Networker) Handle(conn net.Conn) {
 }
 
 func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
-	c := Connection{}
+	c := ConnectRequest{}
 
 	err := json.NewDecoder(buf).Decode(&c)
 	if err != nil {
