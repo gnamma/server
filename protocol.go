@@ -14,3 +14,13 @@ type ConnectRequest struct {
 
 	Username string `json:"username"`
 }
+
+type Ping struct {
+	Communication
+}
+
+type Pong struct {
+	Communication
+
+	ReceivedAt uint `json:"received_at"`
+}
