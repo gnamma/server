@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
 )
@@ -54,7 +53,32 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 		return err
 	}
 
-	conn.Write([]byte(fmt.Sprintf("Hello, %v!", c.Username)))
+	p := Player{
+		Username: c.Username,
+	}
+
+	cv := ConnectVerdict{}
+
+	if n.s.Game.CanJoin(p) {
+		cv = ConnectVerdict{
+			CanProceed: true,
+			Message:    "Welcome to the server!",
+		}
+	} else {
+		cv = ConnectVerdict{
+			CanProceed: false,
+			Message:    "Sorry. Connection rejected.",
+		}
+	}
+
+	cv.Command = "connect_verdict"
+
+	out, err := json.Marshal(cv)
+	if err != nil {
+		return err
+	}
+
+	conn.Write(out)
 
 	return nil
 }

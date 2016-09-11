@@ -12,6 +12,7 @@ type Server struct {
 	Opts Options
 
 	Netw *Networker
+	Game *Game
 }
 
 func New(o Options) *Server {
@@ -20,6 +21,10 @@ func New(o Options) *Server {
 	}
 
 	s.Netw = &Networker{
+		s: s,
+	}
+
+	s.Game = &Game{
 		s: s,
 	}
 

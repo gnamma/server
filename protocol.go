@@ -15,6 +15,13 @@ type ConnectRequest struct {
 	Username string `json:"username"`
 }
 
+type ConnectVerdict struct {
+	Communication
+
+	CanProceed bool   `json:"can_proceed"`
+	Message    string `json:"message"`
+}
+
 type Ping struct {
 	Communication
 }
