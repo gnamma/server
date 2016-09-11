@@ -32,7 +32,7 @@ func (n *Networker) Handle(conn net.Conn) {
 		}
 
 		return
-	} else if com.Command == "ping" {
+	} else if com.Command == PingCmd {
 		err = n.ping(buf, conn)
 		if err != nil {
 			log.Println("Unable to reply to ping:", err)
@@ -71,7 +71,7 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 		}
 	}
 
-	cv.Command = "connect_verdict"
+	cv.Command = ConnectVerdictCmd
 
 	out, err := json.Marshal(cv)
 	if err != nil {
@@ -92,7 +92,7 @@ func (n *Networker) ping(buf *bytes.Buffer, conn net.Conn) error {
 		return err
 	}
 
-	po.Command = "pong"
+	po.Command = PongCmd
 	po.ReceivedAt = pi.SentAt
 	po.SentAt = 0 // TODO: Set to now
 

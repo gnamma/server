@@ -2,6 +2,9 @@ package server
 
 const (
 	ConnectRequestCmd = "connect_request"
+	ConnectVerdictCmd = "connect_verdict"
+	PingCmd           = "ping"
+	PongCmd           = "pong"
 )
 
 type Communication struct {
