@@ -9,7 +9,7 @@ const (
 
 type Communication struct {
 	Command string `json:"command"`
-	SentAt  uint   `json:"sent_at"`
+	SentAt  int64  `json:"sent_at"`
 }
 
 type ConnectRequest struct {
@@ -32,5 +32,5 @@ type Ping struct {
 type Pong struct {
 	Communication
 
-	ReceivedAt uint `json:"received_at"`
+	ReceivedAt int64 `json:"received_at"`
 }

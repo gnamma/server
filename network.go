@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net"
+	"time"
 )
 
 const (
@@ -71,7 +72,10 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 		}
 	}
 
-	cv.Command = ConnectVerdictCmd
+	cv.Communication = Communication{
+		Command: ConnectVerdictCmd,
+		SentAt:  time.Now().UnixNano(),
+	}
 
 	out, err := json.Marshal(cv)
 	if err != nil {
@@ -85,16 +89,19 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 
 func (n *Networker) ping(buf *bytes.Buffer, conn net.Conn) error {
 	pi := Ping{}
-	po := Pong{}
 
 	err := json.NewDecoder(buf).Decode(&pi)
 	if err != nil {
 		return err
 	}
 
-	po.Command = PongCmd
-	po.ReceivedAt = pi.SentAt
-	po.SentAt = 0 // TODO: Set to now
+	po := Pong{
+		Communication: Communication{
+			Command: PongCmd,
+			SentAt:  time.Now().UnixNano(),
+		},
+		ReceivedAt: pi.SentAt,
+	}
 
 	out, err := json.Marshal(po)
 	if err != nil {
