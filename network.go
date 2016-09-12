@@ -60,7 +60,7 @@ func (n *Networker) connection(buf *bytes.Buffer, conn net.Conn) error {
 
 	cv := ConnectVerdict{}
 
-	if n.s.Game.CanJoin(p) {
+	if n.s.Room.CanJoin(p) {
 		cv = ConnectVerdict{
 			CanProceed: true,
 			Message:    "Welcome to the server!",

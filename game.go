@@ -1,9 +1,9 @@
 package server
 
-type Game struct {
+type Room struct {
 	s *Server
 }
 
-func (g *Game) CanJoin(p Player) bool {
+func (g *Room) CanJoin(p Player) bool {
 	return p.Valid()
 }
