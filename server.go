@@ -24,9 +24,7 @@ func New(o Options) *Server {
 		s: s,
 	}
 
-	s.Room = &Room{
-		s: s,
-	}
+	s.Room = NewRoom(s)
 
 	return s
 }
