@@ -16,8 +16,6 @@ type Networker struct {
 }
 
 func (n *Networker) Handle(conn net.Conn) {
-	defer conn.Close()
-
 	com, buf, err := n.peek(conn)
 	if err != nil {
 		log.Println("Could not peek command:", err)

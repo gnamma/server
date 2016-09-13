@@ -69,6 +69,8 @@ func (r *Room) connectRequest(buf io.Reader, conn Conn) error {
 }
 
 func (r *Room) ping(buf io.Reader, conn Conn) error {
+	defer conn.Close()
+
 	pi := Ping{}
 
 	err := json.NewDecoder(buf).Decode(&pi)
