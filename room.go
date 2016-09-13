@@ -3,11 +3,9 @@ package server
 import (
 	"encoding/json"
 	"io"
-	"net"
-	"time"
 )
 
-type CommunicationHandler func(buf io.Reader, conn net.Conn) error
+type CommunicationHandler func(buf io.Reader, conn Conn) error
 
 type Room struct {
 	s *Server
@@ -28,7 +26,7 @@ func NewRoom(s *Server) *Room {
 	return r
 }
 
-func (r *Room) Respond(cmd string, buf io.Reader, conn net.Conn) error {
+func (r *Room) Respond(cmd string, buf io.Reader, conn Conn) error {
 	f, ok := r.handlers[cmd]
 	if !ok {
 		return ErrHandlerNotFound
@@ -41,7 +39,7 @@ func (r *Room) CanJoin(p Player) bool {
 	return p.Valid()
 }
 
-func (r *Room) connectRequest(buf io.Reader, conn net.Conn) error {
+func (r *Room) connectRequest(buf io.Reader, conn Conn) error {
 	c := ConnectRequest{}
 
 	err := json.NewDecoder(buf).Decode(&c)
@@ -67,22 +65,10 @@ func (r *Room) connectRequest(buf io.Reader, conn net.Conn) error {
 		}
 	}
 
-	cv.Communication = Communication{
-		Command: ConnectVerdictCmd,
-		SentAt:  time.Now().UnixNano(),
-	}
-
-	out, err := json.Marshal(cv)
-	if err != nil {
-		return err
-	}
-
-	conn.Write(out)
-
-	return nil
+	return conn.Send(ConnectVerdictCmd, &cv)
 }
 
-func (r *Room) ping(buf io.Reader, conn net.Conn) error {
+func (r *Room) ping(buf io.Reader, conn Conn) error {
 	pi := Ping{}
 
 	err := json.NewDecoder(buf).Decode(&pi)
@@ -91,19 +77,8 @@ func (r *Room) ping(buf io.Reader, conn net.Conn) error {
 	}
 
 	po := Pong{
-		Communication: Communication{
-			Command: PongCmd,
-			SentAt:  time.Now().UnixNano(),
-		},
 		ReceivedAt: pi.SentAt,
 	}
 
-	out, err := json.Marshal(po)
-	if err != nil {
-		return err
-	}
-
-	conn.Write(out)
-
-	return nil
+	return conn.Send(PongCmd, &po)
 }

@@ -24,7 +24,7 @@ func (n *Networker) Handle(conn net.Conn) {
 		return
 	}
 
-	err = n.s.Room.Respond(com.Command, buf, conn)
+	err = n.s.Room.Respond(com.Command, buf, Conn{conn})
 	if err != nil {
 		log.Println("Unable to respond:", err)
 		return
@@ -49,4 +49,20 @@ func (n *Networker) peek(conn net.Conn) (Communication, *bytes.Buffer, error) {
 	}
 
 	return com, buf, nil
+}
+
+type Conn struct {
+	net.Conn
+}
+
+func (c *Conn) Send(cmd string, v Preparer) error {
+	v.Prepare(cmd)
+
+	out, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.Write(out)
+	return err
 }
