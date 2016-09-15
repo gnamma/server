@@ -1,6 +1,7 @@
 package server
 
 type Player struct {
+	ID       uint
 	Username string
 }
 
