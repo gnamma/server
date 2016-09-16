@@ -42,32 +42,6 @@ func (r *Room) CanJoin(p *Player) bool {
 	return p.Valid() && !ok
 }
 
-func (r *Room) connectRequest(conn Conn) error {
-	c := ConnectRequest{}
-
-	err := conn.Read(&c)
-	if err != nil {
-		return err
-	}
-
-	cv := ConnectVerdict{
-		CanProceed: true,
-		Message:    "Welcome to the server!",
-	}
-
-	p, err := r.Join(c.Username)
-	if err != nil {
-		cv = ConnectVerdict{
-			CanProceed: false,
-			Message:    "Sorry. Connection rejected.",
-		}
-	}
-
-	log.Println("Connected player:", p)
-
-	return conn.Send(ConnectVerdictCmd, &cv)
-}
-
 func (r *Room) Join(u string) (*Player, error) {
 	p := &Player{
 		Username: u,
@@ -98,4 +72,30 @@ func (r *Room) ping(conn Conn) error {
 	}
 
 	return conn.Send(PongCmd, &po)
+}
+
+func (r *Room) connectRequest(conn Conn) error {
+	c := ConnectRequest{}
+
+	err := conn.Read(&c)
+	if err != nil {
+		return err
+	}
+
+	cv := ConnectVerdict{
+		CanProceed: true,
+		Message:    "Welcome to the server!",
+	}
+
+	p, err := r.Join(c.Username)
+	if err != nil {
+		cv = ConnectVerdict{
+			CanProceed: false,
+			Message:    "Sorry. Connection rejected.",
+		}
+	}
+
+	log.Println("Connected player:", p)
+
+	return conn.Send(ConnectVerdictCmd, &cv)
 }
