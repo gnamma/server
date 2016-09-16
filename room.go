@@ -1,12 +1,8 @@
 package server
 
-import (
-	"encoding/json"
-	"io"
-	"log"
-)
+import "log"
 
-type CommunicationHandler func(buf io.Reader, conn Conn) error
+type CommunicationHandler func(conn Conn) error
 
 type Room struct {
 	s *Server
@@ -31,13 +27,13 @@ func NewRoom(s *Server) *Room {
 	return r
 }
 
-func (r *Room) Respond(cmd string, buf io.Reader, conn Conn) error {
+func (r *Room) Respond(cmd string, conn Conn) error {
 	f, ok := r.handlers[cmd]
 	if !ok {
 		return ErrHandlerNotFound
 	}
 
-	return f(buf, conn)
+	return f(conn)
 }
 
 func (r *Room) CanJoin(p *Player) bool {
@@ -46,10 +42,10 @@ func (r *Room) CanJoin(p *Player) bool {
 	return p.Valid() && !ok
 }
 
-func (r *Room) connectRequest(buf io.Reader, conn Conn) error {
+func (r *Room) connectRequest(conn Conn) error {
 	c := ConnectRequest{}
 
-	err := json.NewDecoder(buf).Decode(&c)
+	err := conn.Read(&c)
 	if err != nil {
 		return err
 	}
@@ -87,12 +83,12 @@ func (r *Room) Join(u string) (*Player, error) {
 	return p, nil
 }
 
-func (r *Room) ping(buf io.Reader, conn Conn) error {
+func (r *Room) ping(conn Conn) error {
 	defer conn.Close()
 
 	pi := Ping{}
 
-	err := json.NewDecoder(buf).Decode(&pi)
+	err := conn.Read(&pi)
 	if err != nil {
 		return err
 	}

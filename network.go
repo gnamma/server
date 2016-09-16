@@ -16,41 +16,61 @@ type Networker struct {
 }
 
 func (n *Networker) Handle(conn net.Conn) {
-	com, buf, err := n.peek(conn)
+	c := Conn{nc: conn}
+
+	com, err := c.ReadCom()
 	if err != nil {
-		log.Println("Could not peek command:", err)
+		log.Println("Could read command:", err)
 		return
 	}
 
-	err = n.s.Room.Respond(com.Command, buf, Conn{conn})
+	err = n.s.Room.Respond(com.Command, c)
 	if err != nil {
 		log.Println("Unable to respond:", err)
 		return
 	}
 }
 
-func (n *Networker) peek(conn net.Conn) (Communication, *bytes.Buffer, error) {
+type Conn struct {
+	nc net.Conn
+
+	buf *bytes.Buffer
+}
+
+func (c *Conn) ReadCom() (Communication, error) {
 	buf := &bytes.Buffer{}
 	cmd := &bytes.Buffer{}
 	com := Communication{}
 
-	_, err := buf.ReadFrom(conn)
+	_, err := buf.ReadFrom(c.nc)
 	if err != nil {
-		return com, cmd, err
+		return com, err
 	}
+
+	c.buf = buf
 
 	cmd = bytes.NewBuffer(buf.Bytes())
 
 	err = json.NewDecoder(cmd).Decode(&com)
 	if err != nil {
-		return com, cmd, err
+		return com, err
 	}
 
-	return com, buf, nil
+	return com, nil
 }
 
-type Conn struct {
-	net.Conn
+func (c *Conn) Read(v Preparer) error {
+	if c.buf == nil {
+		_, err := c.buf.ReadFrom(c.nc)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := json.NewDecoder(c.buf).Decode(v)
+	c.buf = nil
+
+	return err
 }
 
 func (c *Conn) Send(cmd string, v Preparer) error {
@@ -61,6 +81,10 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 		return err
 	}
 
-	_, err = c.Write(out)
+	_, err = c.nc.Write(out)
 	return err
+}
+
+func (c *Conn) Close() error {
+	return c.nc.Close()
 }
