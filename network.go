@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"log"
@@ -20,7 +21,7 @@ func (n *Networker) Handle(conn net.Conn) {
 
 	com, err := c.ReadCom()
 	if err != nil {
-		log.Println("Could read command:", err)
+		log.Println("Couldn't read command:", err)
 		return
 	}
 
@@ -42,11 +43,15 @@ func (c *Conn) ReadCom() (Communication, error) {
 	cmd := &bytes.Buffer{}
 	com := Communication{}
 
-	_, err := buf.ReadFrom(c.nc)
+	r := bufio.NewReader(c.nc)
+
+	msg, err := r.ReadString('\n')
 	if err != nil {
+		log.Println("coudlnt read from", err)
 		return com, err
 	}
 
+	buf = bytes.NewBufferString(msg)
 	c.buf = buf
 
 	cmd = bytes.NewBuffer(buf.Bytes())
@@ -82,6 +87,11 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 	}
 
 	_, err = c.nc.Write(out)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.nc.Write([]byte("\n"))
 	return err
 }
 

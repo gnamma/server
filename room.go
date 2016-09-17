@@ -58,8 +58,6 @@ func (r *Room) Join(u string) (*Player, error) {
 }
 
 func (r *Room) ping(conn Conn) error {
-	defer conn.Close()
-
 	pi := Ping{}
 
 	err := conn.Read(&pi)
