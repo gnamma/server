@@ -3,10 +3,12 @@ package server
 import "time"
 
 const (
-	ConnectRequestCmd = "connect_request"
-	ConnectVerdictCmd = "connect_verdict"
-	PingCmd           = "ping"
-	PongCmd           = "pong"
+	ConnectRequestCmd     = "connect_request"
+	ConnectVerdictCmd     = "connect_verdict"
+	PingCmd               = "ping"
+	PongCmd               = "pong"
+	EnvironmentRequestCmd = "environment_request"
+	EnvironmentPackageCmd = "environment_package"
 )
 
 type Communication struct {
@@ -45,4 +47,15 @@ type Pong struct {
 
 type Preparer interface {
 	Prepare(string)
+}
+
+type EnvironmentRequest struct {
+	Communication
+}
+
+type EnvironmentPackage struct {
+	Communication
+
+	Downloads map[string]string `json:"downloads"`
+	Main      string            `json:"main"`
 }

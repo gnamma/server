@@ -20,8 +20,9 @@ func NewRoom(s *Server) *Room {
 	}
 
 	r.handlers = map[string]CommunicationHandler{
-		PingCmd:           r.ping,
-		ConnectRequestCmd: r.connectRequest,
+		PingCmd:               r.ping,
+		ConnectRequestCmd:     r.connectRequest,
+		EnvironmentRequestCmd: r.environmentRequest,
 	}
 
 	return r
@@ -96,4 +97,22 @@ func (r *Room) connectRequest(conn Conn) error {
 	log.Println("Connected player:", p)
 
 	return conn.Send(ConnectVerdictCmd, &cv)
+}
+
+func (r *Room) environmentRequest(conn Conn) error {
+	er := EnvironmentRequest{}
+
+	err := conn.Read(&er)
+	if err != nil {
+		return err
+	}
+
+	ep := EnvironmentPackage{
+		Downloads: map[string]string{
+			"world": "<room></room>", // I'm not in the mood to implememnt a full tcp file server. Sorry. Future Harrison: this ones on you.
+		},
+		Main: "world",
+	}
+
+	return conn.Send(EnvironmentPackageCmd, &ep)
 }
