@@ -23,6 +23,7 @@ func NewRoom(s *Server) *Room {
 		PingCmd:               r.ping,
 		ConnectRequestCmd:     r.connectRequest,
 		EnvironmentRequestCmd: r.environmentRequest,
+		AssetRequestCmd:       r.assetRequest,
 	}
 
 	return r
@@ -108,11 +109,27 @@ func (r *Room) environmentRequest(conn Conn) error {
 	}
 
 	ep := EnvironmentPackage{
-		Downloads: map[string]string{
-			"world": "<room></room>", // I'm not in the mood to implememnt a full tcp file server. Sorry. Future Harrison: this ones on you.
+		AssetKeys: map[string]string{
+			"world": "room.gsml", // I'm not in the mood to implememnt a full tcp file server. Sorry. Future Harrison: this ones on you.
 		},
 		Main: "world",
 	}
 
 	return conn.Send(EnvironmentPackageCmd, &ep)
+}
+
+func (r *Room) assetRequest(conn Conn) error {
+	ar := AssetRequest{}
+
+	err := conn.Read(&ar)
+	if err != nil {
+		return err
+	}
+
+	a, err := r.s.Assets.Get(ar.Key)
+	if err != nil {
+		return err
+	}
+
+	return conn.SendRaw(a)
 }

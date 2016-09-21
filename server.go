@@ -6,13 +6,16 @@ type Options struct {
 	Name        string
 	Description string
 	Address     string
+
+	AssetDir string
 }
 
 type Server struct {
 	Opts Options
 
-	Netw *Networker
-	Room *Room
+	Netw   *Networker
+	Room   *Room
+	Assets *Assets
 }
 
 func New(o Options) *Server {
@@ -20,11 +23,9 @@ func New(o Options) *Server {
 		Opts: o,
 	}
 
-	s.Netw = &Networker{
-		s: s,
-	}
-
+	s.Netw = &Networker{s: s}
 	s.Room = NewRoom(s)
+	s.Assets = &Assets{s: s, Dir: o.AssetDir}
 
 	return s
 }

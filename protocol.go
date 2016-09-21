@@ -9,6 +9,7 @@ const (
 	PongCmd               = "pong"
 	EnvironmentRequestCmd = "environment_request"
 	EnvironmentPackageCmd = "environment_package"
+	AssetRequestCmd       = "asset_request"
 )
 
 type Communication struct {
@@ -56,6 +57,12 @@ type EnvironmentRequest struct {
 type EnvironmentPackage struct {
 	Communication
 
-	Downloads map[string]string `json:"downloads"`
+	AssetKeys map[string]string `json:"asset_keys"`
 	Main      string            `json:"main"`
+}
+
+type AssetRequest struct {
+	Communication
+
+	Key string
 }

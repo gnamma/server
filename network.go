@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"io"
 	"log"
 	"net"
 )
@@ -92,6 +93,11 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 	}
 
 	_, err = c.nc.Write([]byte("\n"))
+	return err
+}
+
+func (c *Conn) SendRaw(r io.Reader) error {
+	_, err := io.Copy(c.nc, r)
 	return err
 }
 
