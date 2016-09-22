@@ -101,7 +101,7 @@ func (r *Room) environmentRequest(conn Conn) error {
 
 	ep := EnvironmentPackage{
 		AssetKeys: map[string]string{
-			"world": "room.gsml", // I'm not in the mood to implememnt a full tcp file server. Sorry. Future Harrison: this ones on you.
+			"world": "room.gsml",
 		},
 		Main: "world",
 	}

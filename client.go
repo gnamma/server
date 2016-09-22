@@ -55,3 +55,19 @@ func (c *Client) Ping() (Pong, error) {
 	err = c.conn.ExpectAndRead(PongCmd, &po)
 	return po, err
 }
+
+func (c *Client) Environment() (EnvironmentPackage, error) {
+	ep := EnvironmentPackage{}
+
+	if c.conn == nil {
+		return ep, ErrClientNotConnected
+	}
+
+	err := c.conn.Send(EnvironmentRequestCmd, &EnvironmentRequest{})
+	if err != nil {
+		return ep, err
+	}
+
+	err = c.conn.ExpectAndRead(EnvironmentPackageCmd, &ep)
+	return ep, err
+}

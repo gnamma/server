@@ -43,3 +43,14 @@ func TestPing(t *testing.T) {
 		t.Fatalf("Client could not ping the server", err)
 	}
 }
+
+func TestRequestEnvironment(t *testing.T) {
+	er, err := client.Environment()
+	if err != nil {
+		t.Fatalf("Client could not get environment from server", err)
+	}
+
+	if er.Main != "world" {
+		t.Fatalf("Wrong main file, expected 'world', got '%v'", er.Main)
+	}
+}
