@@ -119,3 +119,12 @@ func (c *Conn) Expect(cmd string) error {
 
 	return nil
 }
+
+func (c *Conn) ExpectAndRead(cmd string, v Preparer) error {
+	err := c.Expect(cmd)
+	if err != nil {
+		return err
+	}
+
+	return c.Read(v)
+}

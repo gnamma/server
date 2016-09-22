@@ -22,20 +22,13 @@ func (c *Client) Connect() error {
 	cr := ConnectRequest{
 		Username: c.Username,
 	}
-
-	cv := ConnectVerdict{}
-
 	err = c.conn.Send(ConnectRequestCmd, &cr)
 	if err != nil {
 		return err
 	}
 
-	err = c.conn.Expect(ConnectVerdictCmd)
-	if err != nil {
-		return err
-	}
-
-	err = c.conn.Read(&cv)
+	cv := ConnectVerdict{}
+	err = c.conn.ExpectAndRead(ConnectVerdictCmd, &cv)
 	if err != nil {
 		return err
 	}
@@ -59,11 +52,6 @@ func (c *Client) Ping() (Pong, error) {
 		return po, err
 	}
 
-	err = c.conn.Expect(PongCmd)
-	if err != nil {
-		return po, err
-	}
-
-	err = c.conn.Read(&po)
+	err = c.conn.ExpectAndRead(PongCmd, &po)
 	return po, err
 }
