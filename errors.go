@@ -7,5 +7,6 @@ var (
 	ErrPlayerCantJoin  = errors.New("Player is unable to join")
 	ErrUnexpectedCom   = errors.New("Unexpected communication")
 
-	ErrClientRejected = errors.New("Client was rejected by the server")
+	ErrClientRejected     = errors.New("Client was rejected by the server")
+	ErrClientNotConnected = errors.New("Client is not connected to a server")
 )

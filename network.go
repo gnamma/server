@@ -20,16 +20,18 @@ type Networker struct {
 func (n *Networker) Handle(conn net.Conn) {
 	c := Conn{nc: conn}
 
-	com, err := c.ReadCom()
-	if err != nil {
-		log.Println("Couldn't read command:", err)
-		return
-	}
+	for {
+		com, err := c.ReadCom()
+		if err != nil {
+			log.Println("Couldn't read command:", err)
+			return
+		}
 
-	err = n.s.Room.Handle(com.Command, c)
-	if err != nil {
-		log.Println("Unable to respond:", err)
-		return
+		err = n.s.Room.Handle(com.Command, c)
+		if err != nil {
+			log.Println("Unable to respond:", err)
+			return
+		}
 	}
 }
 

@@ -46,3 +46,24 @@ func (c *Client) Connect() error {
 
 	return nil
 }
+
+func (c *Client) Ping() (Pong, error) {
+	po := Pong{}
+
+	if c.conn == nil {
+		return po, ErrClientNotConnected
+	}
+
+	err := c.conn.Send(PingCmd, &Ping{})
+	if err != nil {
+		return po, err
+	}
+
+	err = c.conn.Expect(PongCmd)
+	if err != nil {
+		return po, err
+	}
+
+	err = c.conn.Read(&po)
+	return po, err
+}

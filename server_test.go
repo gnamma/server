@@ -36,3 +36,10 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("Client could not connect to the server", err)
 	}
 }
+
+func TestPing(t *testing.T) {
+	_, err := client.Ping()
+	if err != nil {
+		t.Fatalf("Client could not ping the server", err)
+	}
+}

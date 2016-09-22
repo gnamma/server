@@ -46,10 +46,6 @@ type Pong struct {
 	ReceivedAt int64 `json:"received_at"`
 }
 
-type Preparer interface {
-	Prepare(string)
-}
-
 type EnvironmentRequest struct {
 	Communication
 }
@@ -65,4 +61,8 @@ type AssetRequest struct {
 	Communication
 
 	Key string
+}
+
+type Preparer interface {
+	Prepare(string)
 }
