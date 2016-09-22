@@ -104,3 +104,16 @@ func (c *Conn) SendRaw(r io.Reader) error {
 func (c *Conn) Close() error {
 	return c.nc.Close()
 }
+
+func (c *Conn) Expect(cmd string) error {
+	com, err := c.ReadCom()
+	if err != nil {
+		return err
+	}
+
+	if com.Command != cmd {
+		return ErrUnexpectedCom
+	}
+
+	return nil
+}

@@ -23,5 +23,26 @@ func (c *Client) Connect() error {
 		Username: c.Username,
 	}
 
-	return c.conn.Send(ConnectRequestCmd, &cr)
+	cv := ConnectVerdict{}
+
+	err = c.conn.Send(ConnectRequestCmd, &cr)
+	if err != nil {
+		return err
+	}
+
+	err = c.conn.Expect(ConnectVerdictCmd)
+	if err != nil {
+		return err
+	}
+
+	err = c.conn.Read(&cv)
+	if err != nil {
+		return err
+	}
+
+	if !cv.CanProceed {
+		return ErrClientRejected
+	}
+
+	return nil
 }
