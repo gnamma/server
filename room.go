@@ -2,12 +2,10 @@ package server
 
 import "log"
 
-type CommunicationHandler func(conn Conn) error
-
 type Room struct {
-	s *Server
+	*Dispatch
 
-	handlers map[string]CommunicationHandler // Do not change at runtime.
+	s *Server
 
 	players     map[uint]*Player
 	playerCount uint
@@ -19,23 +17,16 @@ func NewRoom(s *Server) *Room {
 		players: make(map[uint]*Player),
 	}
 
-	r.handlers = map[string]CommunicationHandler{
-		PingCmd:               r.ping,
-		ConnectRequestCmd:     r.connectRequest,
-		EnvironmentRequestCmd: r.environmentRequest,
-		AssetRequestCmd:       r.assetRequest,
+	r.Dispatch = &Dispatch{
+		map[string]CommunicationHandler{
+			PingCmd:               r.ping,
+			ConnectRequestCmd:     r.connectRequest,
+			EnvironmentRequestCmd: r.environmentRequest,
+			AssetRequestCmd:       r.assetRequest,
+		},
 	}
 
 	return r
-}
-
-func (r *Room) Respond(cmd string, conn Conn) error {
-	f, ok := r.handlers[cmd]
-	if !ok {
-		return ErrHandlerNotFound
-	}
-
-	return f(conn)
 }
 
 func (r *Room) CanJoin(p *Player) bool {

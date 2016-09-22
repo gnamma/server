@@ -26,7 +26,7 @@ func (n *Networker) Handle(conn net.Conn) {
 		return
 	}
 
-	err = n.s.Room.Respond(com.Command, c)
+	err = n.s.Room.Handle(com.Command, c)
 	if err != nil {
 		log.Println("Unable to respond:", err)
 		return
