@@ -16,11 +16,14 @@ type Server struct {
 	Netw   *Networker
 	Room   *Room
 	Assets *Assets
+
+	Ready chan struct{}
 }
 
 func New(o Options) *Server {
 	s := &Server{
-		Opts: o,
+		Opts:  o,
+		Ready: make(chan struct{}),
 	}
 
 	s.Netw = &Networker{s: s}
@@ -35,6 +38,8 @@ func (s *Server) Listen() error {
 	if err != nil {
 		return err
 	}
+
+	go func() { s.Ready <- struct{}{} }()
 
 	for {
 		conn, err := ln.Accept()
