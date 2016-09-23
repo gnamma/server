@@ -1,6 +1,9 @@
 package server
 
-import "net"
+import (
+	"io"
+	"net"
+)
 
 // Mainly for testing. Perhaps bots too? I don't know.
 type Client struct {
@@ -70,4 +73,22 @@ func (c *Client) Environment() (EnvironmentPackage, error) {
 
 	err = c.conn.ExpectAndRead(EnvironmentPackageCmd, &ep)
 	return ep, err
+}
+
+func (c *Client) Asset(key string) (io.Reader, error) {
+	if c.conn == nil {
+		return nil, ErrClientNotConnected
+	}
+
+	err := c.conn.Send(AssetRequestCmd, &AssetRequest{Key: key})
+	if err != nil {
+		return nil, err
+	}
+
+	buf, err := c.conn.ReadRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
 }

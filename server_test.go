@@ -7,6 +7,7 @@ import (
 
 var (
 	address = "localhost:3445"
+	files   = "test"
 
 	server *Server
 	client *Client
@@ -17,6 +18,7 @@ func TestMain(m *testing.M) {
 		Name:        "Test Server",
 		Description: "Used for testing",
 		Address:     address,
+		AssetDir:    files,
 	})
 
 	client = &Client{
@@ -52,5 +54,12 @@ func TestRequestEnvironment(t *testing.T) {
 
 	if er.Main != "world" {
 		t.Fatalf("Wrong main file, expected 'world', got '%v'", er.Main)
+	}
+}
+
+func TestAssetRequest(t *testing.T) {
+	_, err := client.Asset("main")
+	if err != nil {
+		t.Fatalf("Client could not retrieve asset from server", err)
 	}
 }
