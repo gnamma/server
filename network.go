@@ -68,17 +68,34 @@ func (c *Conn) ReadCom() (Communication, error) {
 }
 
 func (c *Conn) Read(v Preparer) error {
-	if c.buf == nil {
-		_, err := c.buf.ReadFrom(c.nc)
-		if err != nil {
-			return err
-		}
+	buf, err := c.ReadRaw()
+	if err != nil {
+		return err
 	}
 
-	err := json.NewDecoder(c.buf).Decode(v)
-	c.buf = nil
+	err = json.NewDecoder(buf).Decode(v)
+
+	c.FlushCache()
 
 	return err
+}
+
+func (c *Conn) ReadRaw() (io.Reader, error) {
+	if c.buf == nil {
+		buf := bufio.NewReader(c.nc)
+		s, err := buf.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+
+		c.buf = bytes.NewBufferString(s)
+	}
+
+	return c.buf, nil
+}
+
+func (c *Conn) FlushCache() {
+	c.buf = nil
 }
 
 func (c *Conn) Send(cmd string, v Preparer) error {
@@ -99,7 +116,16 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 }
 
 func (c *Conn) SendRaw(r io.Reader) error {
-	_, err := io.Copy(c.nc, r)
+	buf := &bytes.Buffer{}
+	_, err := io.Copy(buf, r)
+	if err != nil {
+		return err
+	}
+
+	buf.WriteRune('\n')
+
+	io.Copy(c.nc, buf)
+
 	return err
 }
 
