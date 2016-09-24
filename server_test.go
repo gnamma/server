@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"log"
 	"os"
 	"testing"
 )
@@ -14,6 +16,8 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	server = New(Options{
 		Name:        "Test Server",
 		Description: "Used for testing",
@@ -58,8 +62,18 @@ func TestRequestEnvironment(t *testing.T) {
 }
 
 func TestAssetRequest(t *testing.T) {
-	_, err := client.Asset("main")
+	r, err := client.Asset("main")
 	if err != nil {
-		t.Fatalf("Client could not retrieve asset from server", err)
+		t.Fatal("Client could not retrieve asset from server", err)
+	}
+
+	buf := bytes.Buffer{}
+	_, err = buf.ReadFrom(r)
+	if err != nil {
+		t.Fatal("Couldn't read from asset buffer")
+	}
+
+	if buf.String() != "<room></room>\n" {
+		t.Fatalf("Asset is not the same!")
 	}
 }
