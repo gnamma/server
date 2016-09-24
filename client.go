@@ -2,7 +2,9 @@ package server
 
 import (
 	"io"
+	"log"
 	"net"
+	"os"
 )
 
 // Mainly for testing. Perhaps bots too? I don't know.
@@ -20,7 +22,7 @@ func (c *Client) Connect() error {
 		return err
 	}
 
-	c.conn = &Conn{nc: conn}
+	c.conn = &Conn{nc: conn, l: log.New(os.Stdout, "client: ", logFlags)}
 
 	cr := ConnectRequest{
 		Username: c.Username,

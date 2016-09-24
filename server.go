@@ -1,6 +1,14 @@
 package server
 
-import "net"
+import (
+	"log"
+	"net"
+	"os"
+)
+
+var (
+	logFlags int = log.LstdFlags | log.Lshortfile
+)
 
 type Options struct {
 	Name        string
@@ -18,12 +26,15 @@ type Server struct {
 	Assets *Assets
 
 	Ready chan struct{}
+
+	log *log.Logger
 }
 
 func New(o Options) *Server {
 	s := &Server{
 		Opts:  o,
 		Ready: make(chan struct{}),
+		log:   log.New(os.Stdout, "server: ", logFlags),
 	}
 
 	s.Netw = &Networker{s: s}
