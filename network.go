@@ -27,7 +27,9 @@ func (n *Networker) Handle(conn net.Conn) {
 		com, err := c.ReadCom()
 		if err != nil {
 			c.l.Println("Couldn't read command:", err)
-			continue
+			c.Close()
+			c.l.Println("Closing connection...")
+			return
 		}
 
 		err = n.s.Room.Handle(com.Command, c)
@@ -35,6 +37,8 @@ func (n *Networker) Handle(conn net.Conn) {
 			c.l.Println("Unable to respond:", err)
 			continue
 		}
+
+		c.FlushCache()
 	}
 }
 
@@ -54,7 +58,6 @@ func (c *Conn) ReadCom() (Communication, error) {
 
 	oldBuf := bytes.NewBuffer(c.buf.Bytes())
 	err = c.Read(&com)
-
 	if err == nil {
 		c.buf = oldBuf
 	}
@@ -74,9 +77,16 @@ func (c *Conn) Read(v Preparer) error {
 		return err
 	}
 
-	err = json.Unmarshal(buf.Bytes(), v)
+	if buf.String() == "" {
+		c.FlushCache()
+		return ErrEmptyBuffer
+	}
 
-	c.FlushCache()
+	err = json.Unmarshal(buf.Bytes(), v)
+	if err == nil || err == io.EOF {
+		c.FlushCache()
+		return nil
+	}
 
 	return err
 }
