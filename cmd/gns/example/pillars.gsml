@@ -1,0 +1,10 @@
+<room>
+  <el name="roof" model="plane" scale-y="-0.1" y="5"/>
+
+  <box name="pillar_bl" scale-y="5" y="2.5" x="-4.5" z="4.5"/>
+  <box name="pillar_fr" scale-y="5" y="2.5" x="4.5" z="-4.5"/>
+  <box name="pillar_br" scale-y="5" y="2.5" x="4.5" z="4.5"/>
+  <box name="pillar_fl" scale-y="5" y="2.5" x="-4.5" z="-4.5"/>
+
+  <plane name="ground" scale-y="2" y="0"/>
+</room>
