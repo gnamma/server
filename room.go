@@ -23,6 +23,7 @@ func NewRoom(s *Server) *Room {
 			ConnectRequestCmd:     r.connectRequest,
 			EnvironmentRequestCmd: r.environmentRequest,
 			AssetRequestCmd:       r.assetRequest,
+			RegisterNodeCmd:       r.registerNode,
 		},
 	}
 
@@ -39,11 +40,14 @@ func (r *Room) Join(u string) (*Player, error) {
 	p := &Player{
 		Username: u,
 		ID:       r.playerCount + 1, // Don't increment straight away so that to prevent an overflow.
+		Nodes:    make(map[uint]*Node),
 	}
 
 	if !r.CanJoin(p) {
 		return nil, ErrPlayerCantJoin
 	}
+
+	r.players[p.ID] = p
 
 	r.playerCount += 1
 
@@ -84,6 +88,8 @@ func (r *Room) connectRequest(conn Conn) error {
 			CanProceed: false,
 			Message:    "Sorry. Connection rejected.",
 		}
+	} else {
+		cv.PlayerID = p.ID
 	}
 
 	log.Println("Connected player:", p)
@@ -101,7 +107,7 @@ func (r *Room) environmentRequest(conn Conn) error {
 
 	ep := EnvironmentPackage{
 		AssetKeys: map[string]string{
-			"world": "room.gsml",
+			"world": "room.gsml", // TODO: Do something here
 		},
 		Main: "world",
 	}
@@ -123,4 +129,51 @@ func (r *Room) assetRequest(conn Conn) error {
 	}
 
 	return conn.SendRaw(a)
+}
+
+func (r *Room) registerNode(conn Conn) error {
+	rn := RegisterNode{}
+
+	err := conn.Read(&rn)
+	if err != nil {
+		return err
+	}
+
+	p, ok := r.players[rn.PID]
+	if !ok {
+		return ErrPlayerDoesntExist
+	}
+
+	nid, err := p.RegisterNode(rn.Node)
+	if err != nil {
+		return err
+	}
+
+	return conn.Send(RegisteredNodeCmd, &RegisteredNode{
+		NID: nid,
+	})
+}
+
+func (r *Room) updateNode(conn Conn) error {
+	un := UpdateNode{}
+
+	err := conn.Read(&un)
+	if err != nil {
+		return err
+	}
+
+	p, ok := r.players[un.PID]
+	if !ok {
+		return ErrPlayerDoesntExist
+	}
+
+	n, ok := p.Nodes[un.NID]
+	if !ok {
+		return ErrNodeDoesntExist
+	}
+
+	n.Position = un.Position
+	n.Rotation = un.Rotation
+
+	return nil
 }

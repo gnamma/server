@@ -42,14 +42,6 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("Client could not connect to the server", err)
 	}
 }
-
-func TestPing(t *testing.T) {
-	_, err := client.Ping()
-	if err != nil {
-		t.Fatalf("Client could not ping the server", err)
-	}
-}
-
 func TestRequestEnvironment(t *testing.T) {
 	er, err := client.Environment()
 	if err != nil {
@@ -75,5 +67,42 @@ func TestAssetRequest(t *testing.T) {
 
 	if buf.String() != "<room></room>\n" {
 		t.Fatalf("Asset is not the same!")
+	}
+}
+
+func TestPing(t *testing.T) {
+	_, err := client.Ping()
+	if err != nil {
+		t.Fatal("Client could not ping the server:", err)
+	}
+}
+
+func TestNodes(t *testing.T) {
+	nodes := []Node{
+		{
+			Type:     HeadNode,
+			Position: Point{0, 2, 0},
+			Rotation: Point{},
+			Label:    "your head!",
+		},
+		{
+			Type:     ArmNode,
+			Position: Point{-1, 1, 0},
+			Rotation: Point{},
+			Label:    "your left arm!",
+		},
+		{
+			Type:     ArmNode,
+			Position: Point{1, 1, 0},
+			Rotation: Point{},
+			Label:    "your right arm!",
+		},
+	}
+
+	for _, n := range nodes {
+		err := client.RegisterNode(n)
+		if err != nil {
+			t.Fatalf("Unable to register node '%s': %v", n.Label, err)
+		}
 	}
 }

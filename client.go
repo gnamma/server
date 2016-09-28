@@ -42,6 +42,12 @@ func (c *Client) Connect() error {
 		return ErrClientRejected
 	}
 
+	c.player = &Player{
+		ID:       cv.PlayerID,
+		Username: c.Username,
+		Nodes:    make(map[uint]*Node),
+	}
+
 	return nil
 }
 
@@ -93,4 +99,42 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 	}
 
 	return buf, nil
+}
+
+func (c *Client) RegisterNode(n Node) error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	err := c.conn.Send(RegisterNodeCmd, &RegisterNode{
+		Node: n,
+		PID:  c.player.ID,
+	})
+	if err != nil {
+		return err
+	}
+
+	rn := RegisteredNode{}
+	err = c.conn.ExpectAndRead(RegisteredNodeCmd, &rn)
+	if err != nil {
+		return err
+	}
+
+	c.player.Nodes[rn.NID] = &n
+	c.player.nodeCount = rn.NID
+
+	return nil
+}
+
+func (c *Client) UpdateNode(n Node) error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	return c.conn.Send(UpdateNodeCmd, &UpdateNode{
+		PID:      c.player.ID,
+		NID:      n.ID,
+		Position: n.Position,
+		Rotation: n.Rotation,
+	})
 }
