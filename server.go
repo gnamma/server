@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	logFlags int = log.LstdFlags | log.Lshortfile
+	logFlags int = log.Lshortfile
 )
 
 type Options struct {
