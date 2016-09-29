@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"net"
@@ -12,8 +13,8 @@ type Client struct {
 	Address  string
 	Username string
 
-	conn   *Conn
 	player *Player
+	conn   *Session
 }
 
 func (c *Client) Connect() error {
@@ -22,7 +23,13 @@ func (c *Client) Connect() error {
 		return err
 	}
 
-	c.conn = &Conn{nc: conn, l: log.New(os.Stdout, "client: ", logFlags)}
+	c.conn = &Session{
+		Conn: &Conn{
+			nc: conn,
+			l:  log.New(os.Stdout, "client: ", logFlags),
+		},
+		chans: make(map[string][]chan *bytes.Buffer),
+	}
 
 	cr := ConnectRequest{
 		Username: c.Username,
@@ -137,4 +144,39 @@ func (c *Client) UpdateNode(n Node) error {
 		Position: n.Position,
 		Rotation: n.Rotation,
 	})
+}
+
+type Session struct {
+	*Conn
+
+	chans map[string][]chan *bytes.Buffer
+}
+
+func (s *Session) ReadWait(cmd string, v Preparer) error {
+	c := make(chan *bytes.Buffer)
+
+	s.chans[cmd] = append(s.chans[cmd], c)
+
+	buf := <-c
+
+	conn := Conn{
+		buf: buf,
+	}
+
+	return conn.Read(v)
+}
+
+func (s *Session) ReadLoop() error {
+	for {
+		com, err := s.Conn.ReadCom()
+		if err != nil { // TODO: Account for raw coms, like file transfers
+			return err
+		}
+
+		for _, c := range s.chans[com.Command] {
+			c <- bytes.NewBuffer(s.Conn.buf.Bytes())
+		}
+	}
+
+	return nil
 }
