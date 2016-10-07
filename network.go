@@ -143,6 +143,10 @@ func (c *Conn) SendRaw(r io.Reader) error {
 	return err
 }
 
+func (c *Conn) SendRawString(s string) error {
+	return c.SendRaw(strings.NewReader(s))
+}
+
 func (c *Conn) Close() error {
 	return c.nc.Close()
 }

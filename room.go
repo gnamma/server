@@ -22,7 +22,6 @@ func NewRoom(s *Server) *Room {
 			PingCmd:               r.ping,
 			ConnectRequestCmd:     r.connectRequest,
 			EnvironmentRequestCmd: r.environmentRequest,
-			AssetRequestCmd:       r.assetRequest,
 			RegisterNodeCmd:       r.registerNode,
 		},
 	}
@@ -113,22 +112,6 @@ func (r *Room) environmentRequest(conn Conn) error {
 	}
 
 	return conn.Send(EnvironmentPackageCmd, &ep)
-}
-
-func (r *Room) assetRequest(conn Conn) error {
-	ar := AssetRequest{}
-
-	err := conn.Read(&ar)
-	if err != nil {
-		return err
-	}
-
-	a, err := r.s.Assets.Get(ar.Key)
-	if err != nil {
-		return err
-	}
-
-	return conn.SendRaw(a)
 }
 
 func (r *Room) registerNode(conn Conn) error {

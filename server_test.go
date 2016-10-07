@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	address = "localhost:3445"
-	files   = "test"
+	serverAddr = "localhost:3445"
+	assetsAddr = "localhost:3554"
+	files      = "test"
 
 	server *Server
 	client *Client
@@ -21,18 +22,22 @@ func TestMain(m *testing.M) {
 	server = New(Options{
 		Name:        "Test Server",
 		Description: "Used for testing",
-		Address:     address,
-		AssetDir:    files,
+		Addr:        serverAddr,
+		AssetsDir:   files,
+		AssetsAddr:  assetsAddr,
 	})
 
 	client = &Client{
-		Address:  address,
-		Username: "parzival", // Ten points to Ravenclaw if someone gets this reference.
+		Addr:       serverAddr,
+		Username:   "parzival", // Ten points to Ravenclaw if someone gets this reference.
+		AssetsAddr: assetsAddr,
 	}
 
-	go server.Listen()
+	go server.Go()
 
 	<-server.Ready
+	<-server.Assets.Ready
+
 	os.Exit(m.Run())
 }
 
@@ -42,6 +47,7 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("Client could not connect to the server", err)
 	}
 }
+
 func TestRequestEnvironment(t *testing.T) {
 	er, err := client.Environment()
 	if err != nil {

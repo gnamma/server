@@ -10,15 +10,16 @@ import (
 
 // Mainly for testing. Perhaps bots too? I don't know.
 type Client struct {
-	Address  string
-	Username string
+	Addr       string
+	AssetsAddr string
+	Username   string
 
 	player *Player
 	conn   *Session
 }
 
 func (c *Client) Connect() error {
-	conn, err := net.Dial("tcp", c.Address)
+	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return err
 	}
@@ -91,21 +92,20 @@ func (c *Client) Environment() (EnvironmentPackage, error) {
 }
 
 func (c *Client) Asset(key string) (io.Reader, error) {
-	if c.conn == nil {
-		return nil, ErrClientNotConnected
-	}
-
-	err := c.conn.Send(AssetRequestCmd, &AssetRequest{Key: key})
+	nc, err := net.Dial("tcp", c.AssetsAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	buf, err := c.conn.ReadRaw()
+	conn := Conn{nc: nc}
+	defer conn.Close()
+
+	err = conn.SendRawString(key)
 	if err != nil {
 		return nil, err
 	}
 
-	return buf, nil
+	return conn.ReadRaw()
 }
 
 func (c *Client) RegisterNode(n Node) error {
