@@ -23,6 +23,7 @@ func NewRoom(s *Server) *Room {
 			ConnectRequestCmd:     r.connectRequest,
 			EnvironmentRequestCmd: r.environmentRequest,
 			RegisterNodeCmd:       r.registerNode,
+			UpdateNodeCmd:         r.updateNode,
 		},
 	}
 
