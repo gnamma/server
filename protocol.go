@@ -9,7 +9,11 @@ const (
 	PongCmd               = "pong"
 	EnvironmentRequestCmd = "environment_request"
 	EnvironmentPackageCmd = "environment_package"
-	AssetRequestCmd       = "asset_request"
+	RegisterNodeCmd       = "register_node"
+	RegisteredNodeCmd     = "registered_node"
+	UpdateNodeCmd         = "update_node"
+	AssetServerRequestCmd = "asset_server_request"
+	AssetServerAddressCmd = "asset_server_address"
 )
 
 type Communication struct {
@@ -57,10 +61,39 @@ type EnvironmentPackage struct {
 	Main      string            `json:"main"`
 }
 
-type AssetRequest struct {
+type RegisterNode struct {
 	Communication
 
-	Key string
+	Node Node `json:"node"`
+	PID  uint `json:"pid"`
+}
+
+type RegisteredNode struct {
+	Communication
+
+	NID uint `json:"nid"`
+}
+
+type UpdateNode struct {
+	Communication
+
+	PID uint
+	NID uint
+
+	Position Point
+	Rotation Point
+}
+
+type AssetServerRequest struct {
+	Communication
+
+	Region string
+}
+
+type AssetServerAddress struct {
+	Communication
+
+	Address string
 }
 
 type Preparer interface {

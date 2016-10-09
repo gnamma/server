@@ -48,51 +48,8 @@ type Conn struct {
 	l   *log.Logger
 }
 
-func (c *Conn) ReadCom() (Communication, error) {
-	com := Communication{}
-
-	_, err := c.ReadRaw()
-	if err != nil {
-		return com, err
-	}
-
-	oldBuf := bytes.NewBuffer(c.buf.Bytes())
-	err = c.Read(&com)
-	if err == nil {
-		c.buf = oldBuf
-	}
-
-	return com, err
-}
-
-func (c *Conn) Read(v Preparer) error {
-	r, err := c.ReadRaw()
-	if err != nil {
-		return err
-	}
-
-	buf := &bytes.Buffer{}
-	_, err = buf.ReadFrom(r)
-	if err != nil {
-		return err
-	}
-
-	if buf.String() == "" {
-		c.FlushCache()
-		return ErrEmptyBuffer
-	}
-
-	err = json.Unmarshal(buf.Bytes(), v)
-	if err == nil || err == io.EOF {
-		c.FlushCache()
-		return nil
-	}
-
-	return err
-}
-
-func (c *Conn) ReadRaw() (io.Reader, error) {
-	if c.buf == nil {
+func (c *Conn) ReadRaw() (*bytes.Buffer, error) {
+	if c.buf.String() == "" || c.buf == nil {
 		connBuf := bufio.NewReader(c.nc)
 
 		lenStr, err := connBuf.ReadString('\n')
@@ -101,7 +58,6 @@ func (c *Conn) ReadRaw() (io.Reader, error) {
 		}
 
 		lenStr = strings.TrimSpace(lenStr)
-
 		l, err := strconv.Atoi(lenStr)
 		if err != nil {
 			return nil, err
@@ -119,8 +75,45 @@ func (c *Conn) ReadRaw() (io.Reader, error) {
 	return c.buf, nil
 }
 
+func (c *Conn) Read(v Preparer) error {
+	r, err := c.ReadRaw()
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(r.Bytes(), v)
+	if err != nil {
+		return err
+	}
+
+	c.FlushCache()
+
+	return nil
+}
+
+func (c *Conn) ReadCom() (Communication, error) {
+	com := Communication{}
+
+	r, err := c.ReadRaw()
+	if err != nil {
+		return com, err
+	}
+
+	old := r.Bytes()
+
+	err = c.Read(&com)
+	if err != nil {
+		return com, err
+	}
+
+	c.FlushCache()
+
+	_, err = c.buf.Write(old)
+	return com, err
+}
+
 func (c *Conn) FlushCache() {
-	c.buf = nil
+	c.buf.Reset()
 }
 
 func (c *Conn) Send(cmd string, v Preparer) error {
@@ -148,6 +141,10 @@ func (c *Conn) SendRaw(r io.Reader) error {
 
 	_, err = io.Copy(c.nc, buf)
 	return err
+}
+
+func (c *Conn) SendRawString(s string) error {
+	return c.SendRaw(strings.NewReader(s))
 }
 
 func (c *Conn) Close() error {

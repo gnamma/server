@@ -7,15 +7,16 @@ import (
 )
 
 var (
-	logFlags int = log.LstdFlags | log.Lshortfile
+	logFlags int = log.Lshortfile
 )
 
 type Options struct {
 	Name        string
 	Description string
-	Address     string
+	Addr        string
 
-	AssetDir string
+	AssetsDir  string
+	AssetsAddr string
 }
 
 type Server struct {
@@ -23,7 +24,7 @@ type Server struct {
 
 	Netw   *Networker
 	Room   *Room
-	Assets *Assets
+	Assets *AssetServer
 
 	Ready chan struct{}
 
@@ -32,20 +33,20 @@ type Server struct {
 
 func New(o Options) *Server {
 	s := &Server{
-		Opts:  o,
-		Ready: make(chan struct{}),
-		log:   log.New(os.Stdout, "server: ", logFlags),
+		Opts:   o,
+		Ready:  make(chan struct{}),
+		log:    log.New(os.Stdout, "server: ", logFlags),
+		Assets: NewAssetServer(o.AssetsAddr, o.AssetsDir),
 	}
 
 	s.Netw = &Networker{s: s}
 	s.Room = NewRoom(s)
-	s.Assets = &Assets{s: s, Dir: o.AssetDir}
 
 	return s
 }
 
 func (s *Server) Listen() error {
-	ln, err := net.Listen(ConnectionType, s.Opts.Address)
+	ln, err := net.Listen(ConnectionType, s.Opts.Addr)
 	if err != nil {
 		return err
 	}
@@ -60,4 +61,10 @@ func (s *Server) Listen() error {
 
 		go s.Netw.Handle(conn)
 	}
+}
+
+func (s *Server) Go() error {
+	go s.Assets.Listen()
+
+	return s.Listen()
 }

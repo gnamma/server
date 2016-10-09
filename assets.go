@@ -1,23 +1,62 @@
 package server
 
 import (
-	"bufio"
-	"io"
+	"log"
+	"net"
+	"net/http"
 	"os"
-	"path/filepath"
 )
 
-type Assets struct {
-	s *Server
+type AssetServer struct {
+	Dir   http.Dir
+	Addr  string
+	Ready chan struct{}
 
-	Dir string
+	l *log.Logger
 }
 
-func (a *Assets) Get(key string) (io.Reader, error) {
-	f, err := os.Open(filepath.Join(a.Dir, key))
+func NewAssetServer(addr, dir string) *AssetServer {
+	return &AssetServer{
+		Addr:  addr,
+		Dir:   http.Dir(dir),
+		l:     log.New(os.Stdout, "assets: ", logFlags),
+		Ready: make(chan struct{}),
+	}
+}
+
+func (as *AssetServer) Listen() error {
+	ln, err := net.Listen(ConnectionType, as.Addr)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return bufio.NewReader(f), nil
+	go func() { as.Ready <- struct{}{} }()
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			return err // Probably shouldn't break the server here...
+		}
+
+		err = as.Handle(Conn{nc: conn})
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (as *AssetServer) Handle(conn Conn) error {
+	keyBuf, err := conn.ReadRaw()
+	if err != nil {
+		return err
+	}
+
+	key := keyBuf.String()
+
+	f, err := as.Dir.Open(key)
+	if err != nil {
+		return err
+	}
+
+	return conn.SendRaw(f)
 }

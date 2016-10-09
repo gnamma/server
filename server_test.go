@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	address = "localhost:3445"
-	files   = "test"
+	serverAddr = "localhost:3445"
+	assetsAddr = "localhost:3554"
+	files      = "test"
 
 	server *Server
 	client *Client
@@ -21,18 +22,22 @@ func TestMain(m *testing.M) {
 	server = New(Options{
 		Name:        "Test Server",
 		Description: "Used for testing",
-		Address:     address,
-		AssetDir:    files,
+		Addr:        serverAddr,
+		AssetsDir:   files,
+		AssetsAddr:  assetsAddr,
 	})
 
 	client = &Client{
-		Address:  address,
-		Username: "parzival", // Ten points to Ravenclaw if someone gets this reference.
+		Addr:       serverAddr,
+		Username:   "parzival", // Ten points to Ravenclaw if someone gets this reference.
+		AssetsAddr: assetsAddr,
 	}
 
-	go server.Listen()
+	go server.Go()
 
 	<-server.Ready
+	<-server.Assets.Ready
+
 	os.Exit(m.Run())
 }
 
@@ -40,13 +45,6 @@ func TestConnect(t *testing.T) {
 	err := client.Connect()
 	if err != nil {
 		t.Fatalf("Client could not connect to the server", err)
-	}
-}
-
-func TestPing(t *testing.T) {
-	_, err := client.Ping()
-	if err != nil {
-		t.Fatalf("Client could not ping the server", err)
 	}
 }
 
@@ -75,5 +73,42 @@ func TestAssetRequest(t *testing.T) {
 
 	if buf.String() != "<room></room>\n" {
 		t.Fatalf("Asset is not the same!")
+	}
+}
+
+func TestPing(t *testing.T) {
+	_, err := client.Ping()
+	if err != nil {
+		t.Fatal("Client could not ping the server:", err)
+	}
+}
+
+func TestNodes(t *testing.T) {
+	nodes := []Node{
+		{
+			Type:     HeadNode,
+			Position: Point{0, 2, 0},
+			Rotation: Point{},
+			Label:    "your head!",
+		},
+		{
+			Type:     ArmNode,
+			Position: Point{-1, 1, 0},
+			Rotation: Point{},
+			Label:    "your left arm!",
+		},
+		{
+			Type:     ArmNode,
+			Position: Point{1, 1, 0},
+			Rotation: Point{},
+			Label:    "your right arm!",
+		},
+	}
+
+	for _, n := range nodes {
+		err := client.RegisterNode(n)
+		if err != nil {
+			t.Fatalf("Unable to register node '%s': %v", n.Label, err)
+		}
 	}
 }

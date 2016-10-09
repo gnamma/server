@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"log"
 	"net"
@@ -9,20 +10,27 @@ import (
 
 // Mainly for testing. Perhaps bots too? I don't know.
 type Client struct {
-	Address  string
-	Username string
+	Addr       string
+	AssetsAddr string
+	Username   string
 
-	conn   *Conn
 	player *Player
+	conn   *Session
 }
 
 func (c *Client) Connect() error {
-	conn, err := net.Dial("tcp", c.Address)
+	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return err
 	}
 
-	c.conn = &Conn{nc: conn, l: log.New(os.Stdout, "client: ", logFlags)}
+	c.conn = &Session{
+		Conn: &Conn{
+			nc: conn,
+			l:  log.New(os.Stdout, "client: ", logFlags),
+		},
+		chans: make(map[string][]chan *bytes.Buffer),
+	}
 
 	cr := ConnectRequest{
 		Username: c.Username,
@@ -40,6 +48,12 @@ func (c *Client) Connect() error {
 
 	if !cv.CanProceed {
 		return ErrClientRejected
+	}
+
+	c.player = &Player{
+		ID:       cv.PlayerID,
+		Username: c.Username,
+		Nodes:    make(map[uint]*Node),
 	}
 
 	return nil
@@ -78,19 +92,91 @@ func (c *Client) Environment() (EnvironmentPackage, error) {
 }
 
 func (c *Client) Asset(key string) (io.Reader, error) {
+	nc, err := net.Dial("tcp", c.AssetsAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := Conn{nc: nc}
+	defer conn.Close()
+
+	err = conn.SendRawString(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn.ReadRaw()
+}
+
+func (c *Client) RegisterNode(n Node) error {
 	if c.conn == nil {
-		return nil, ErrClientNotConnected
+		return ErrClientNotConnected
 	}
 
-	err := c.conn.Send(AssetRequestCmd, &AssetRequest{Key: key})
+	err := c.conn.Send(RegisterNodeCmd, &RegisterNode{
+		Node: n,
+		PID:  c.player.ID,
+	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	buf, err := c.conn.ReadRaw()
+	rn := RegisteredNode{}
+	err = c.conn.ExpectAndRead(RegisteredNodeCmd, &rn)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return buf, nil
+	c.player.Nodes[rn.NID] = &n
+	c.player.nodeCount = rn.NID
+
+	return nil
+}
+
+func (c *Client) UpdateNode(n Node) error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	return c.conn.Send(UpdateNodeCmd, &UpdateNode{
+		PID:      c.player.ID,
+		NID:      n.ID,
+		Position: n.Position,
+		Rotation: n.Rotation,
+	})
+}
+
+type Session struct {
+	*Conn
+
+	chans map[string][]chan *bytes.Buffer
+}
+
+func (s *Session) ReadWait(cmd string, v Preparer) error {
+	c := make(chan *bytes.Buffer)
+
+	s.chans[cmd] = append(s.chans[cmd], c)
+
+	buf := <-c
+
+	conn := Conn{
+		buf: buf,
+	}
+
+	return conn.Read(v)
+}
+
+func (s *Session) ReadLoop() error {
+	for {
+		com, err := s.Conn.ReadCom()
+		if err != nil { // TODO: Account for raw coms, like file transfers
+			return err
+		}
+
+		for _, c := range s.chans[com.Command] {
+			c <- bytes.NewBuffer(s.Conn.buf.Bytes())
+		}
+	}
+
+	return nil
 }
