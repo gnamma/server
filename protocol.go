@@ -77,11 +77,11 @@ type RegisteredNode struct {
 type UpdateNode struct {
 	Communication
 
-	PID uint
-	NID uint
+	PID uint `json:"pid"`
+	NID uint `json:"nid"`
 
-	Position Point
-	Rotation Point
+	Position Point `json:"position"`
+	Rotation Point `json:"rotation"`
 }
 
 type AssetServerRequest struct {
