@@ -38,7 +38,7 @@ func (as *AssetServer) Listen() error {
 			return err // Probably shouldn't break the server here...
 		}
 
-		err = as.Handle(Conn{nc: conn})
+		err = as.Handle(Conn{NConn: conn, log: as.l})
 		if err != nil {
 			return err
 		}

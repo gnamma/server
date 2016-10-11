@@ -1,6 +1,9 @@
 package server
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 type Room struct {
 	*Dispatch
@@ -30,17 +33,32 @@ func NewRoom(s *Server) *Room {
 	return r
 }
 
+func (r *Room) StartUpdateLoop(fps float64) {
+	wait := time.Second / time.Duration(fps)
+	log.Println("Updating on an interval of:", wait)
+
+	for {
+		r.s.log.Println("Updating server...")
+		for _, p := range r.players {
+			p.Conn.Done()
+		}
+
+		time.Sleep(wait)
+	}
+}
+
 func (r *Room) CanJoin(p *Player) bool {
 	_, ok := r.players[p.ID]
 
 	return p.Valid() && !ok
 }
 
-func (r *Room) Join(u string) (*Player, error) {
+func (r *Room) Join(u string, c *ChildConn) (*Player, error) {
 	p := &Player{
 		Username: u,
 		ID:       r.playerCount + 1, // Don't increment straight away so that to prevent an overflow.
 		Nodes:    make(map[uint]*Node),
+		Conn:     c.Parent(),
 	}
 
 	if !r.CanJoin(p) {
@@ -54,7 +72,7 @@ func (r *Room) Join(u string) (*Player, error) {
 	return p, nil
 }
 
-func (r *Room) ping(conn Conn) error {
+func (r *Room) ping(conn *ChildConn) error {
 	pi := Ping{}
 
 	err := conn.Read(&pi)
@@ -69,7 +87,7 @@ func (r *Room) ping(conn Conn) error {
 	return conn.Send(PongCmd, &po)
 }
 
-func (r *Room) connectRequest(conn Conn) error {
+func (r *Room) connectRequest(conn *ChildConn) error {
 	c := ConnectRequest{}
 
 	err := conn.Read(&c)
@@ -82,7 +100,7 @@ func (r *Room) connectRequest(conn Conn) error {
 		Message:    "Welcome to the server!",
 	}
 
-	p, err := r.Join(c.Username)
+	p, err := r.Join(c.Username, conn)
 	if err != nil {
 		cv = ConnectVerdict{
 			CanProceed: false,
@@ -90,14 +108,13 @@ func (r *Room) connectRequest(conn Conn) error {
 		}
 	} else {
 		cv.PlayerID = p.ID
+		conn.log().Println("Connected player:", p)
 	}
-
-	log.Println("Connected player:", p)
 
 	return conn.Send(ConnectVerdictCmd, &cv)
 }
 
-func (r *Room) environmentRequest(conn Conn) error {
+func (r *Room) environmentRequest(conn *ChildConn) error {
 	er := EnvironmentRequest{}
 
 	err := conn.Read(&er)
@@ -115,7 +132,7 @@ func (r *Room) environmentRequest(conn Conn) error {
 	return conn.Send(EnvironmentPackageCmd, &ep)
 }
 
-func (r *Room) registerNode(conn Conn) error {
+func (r *Room) registerNode(conn *ChildConn) error {
 	rn := RegisterNode{}
 
 	err := conn.Read(&rn)
@@ -138,7 +155,7 @@ func (r *Room) registerNode(conn Conn) error {
 	})
 }
 
-func (r *Room) updateNode(conn Conn) error {
+func (r *Room) updateNode(conn *ChildConn) error {
 	un := UpdateNode{}
 
 	err := conn.Read(&un)

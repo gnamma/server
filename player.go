@@ -1,5 +1,7 @@
 package server
 
+import "sync"
+
 type NodeType uint
 
 const (
@@ -11,7 +13,10 @@ type Player struct {
 	ID       uint
 	Username string
 
+	Conn *ComConn
+
 	Nodes     map[uint]*Node
+	nodesLock sync.RWMutex
 	nodeCount uint
 }
 
@@ -22,6 +27,7 @@ func (p *Player) Valid() bool {
 func (p *Player) RegisterNode(n Node) (uint, error) {
 	id := p.nodeCount + 1
 
+	p.nodesLock.Lock()
 	_, ok := p.Nodes[id]
 	if ok {
 		return 0, ErrNodeAlreadyExists
@@ -29,6 +35,8 @@ func (p *Player) RegisterNode(n Node) (uint, error) {
 
 	p.Nodes[id] = &n
 	p.nodeCount += 1
+
+	p.nodesLock.Unlock()
 
 	return id, nil
 }

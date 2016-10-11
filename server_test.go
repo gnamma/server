@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -86,10 +87,10 @@ func TestPing(t *testing.T) {
 func TestNodes(t *testing.T) {
 	nodes := []Node{
 		{
-			Type:     HeadNode,
-			Position: Point{0, 2, 0},
+			Type:     ArmNode,
+			Position: Point{1, 1, 0},
 			Rotation: Point{},
-			Label:    "your head!",
+			Label:    "your right arm!",
 		},
 		{
 			Type:     ArmNode,
@@ -98,17 +99,30 @@ func TestNodes(t *testing.T) {
 			Label:    "your left arm!",
 		},
 		{
-			Type:     ArmNode,
-			Position: Point{1, 1, 0},
+			Type:     HeadNode,
+			Position: Point{0, 2, 0},
 			Rotation: Point{},
-			Label:    "your right arm!",
+			Label:    "your head!",
 		},
 	}
 
+	var wg sync.WaitGroup
+
 	for _, n := range nodes {
-		err := client.RegisterNode(n)
-		if err != nil {
-			t.Fatalf("Unable to register node '%s': %v", n.Label, err)
-		}
+		wg.Add(1)
+		go func(n Node) {
+			defer wg.Done()
+
+			log.Println("registering node:", n)
+			err := client.RegisterNode(n)
+			log.Println("registered node:", n)
+			if err != nil {
+				t.Fatalf("Unable to register node '%s': %v", n.Label, err)
+			}
+		}(n)
 	}
+
+	wg.Wait()
+
+	log.Println("YOU'RE DONE!")
 }

@@ -1,11 +1,11 @@
 package server
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"net"
 	"os"
+	"time"
 )
 
 // Mainly for testing. Perhaps bots too? I don't know.
@@ -14,8 +14,23 @@ type Client struct {
 	AssetsAddr string
 	Username   string
 
+	FPS float64
+
 	player *Player
-	conn   *Session
+	conn   *ComConn
+}
+
+func (c *Client) UpdateLoop() {
+	if c.FPS == 0 {
+		c.FPS = 60
+	}
+
+	wait := time.Second / time.Duration(c.FPS)
+
+	for {
+		c.conn.Done()
+		time.Sleep(wait)
+	}
 }
 
 func (c *Client) Connect() error {
@@ -24,13 +39,12 @@ func (c *Client) Connect() error {
 		return err
 	}
 
-	c.conn = &Session{
-		Conn: &Conn{
-			nc: conn,
-			l:  log.New(os.Stdout, "client: ", logFlags),
-		},
-		chans: make(map[string][]chan *bytes.Buffer),
-	}
+	c.conn = NewComConn(&Conn{
+		NConn: conn,
+		log:   log.New(os.Stdout, "client: ", logFlags),
+	})
+
+	go c.UpdateLoop()
 
 	cr := ConnectRequest{
 		Username: c.Username,
@@ -97,7 +111,7 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-	conn := Conn{nc: nc}
+	conn := Conn{NConn: nc}
 	defer conn.Close()
 
 	err = conn.SendRawString(key)
@@ -144,39 +158,4 @@ func (c *Client) UpdateNode(n Node) error {
 		Position: n.Position,
 		Rotation: n.Rotation,
 	})
-}
-
-type Session struct {
-	*Conn
-
-	chans map[string][]chan *bytes.Buffer
-}
-
-func (s *Session) ReadWait(cmd string, v Preparer) error {
-	c := make(chan *bytes.Buffer)
-
-	s.chans[cmd] = append(s.chans[cmd], c)
-
-	buf := <-c
-
-	conn := Conn{
-		buf: buf,
-	}
-
-	return conn.Read(v)
-}
-
-func (s *Session) ReadLoop() error {
-	for {
-		com, err := s.Conn.ReadCom()
-		if err != nil { // TODO: Account for raw coms, like file transfers
-			return err
-		}
-
-		for _, c := range s.chans[com.Command] {
-			c <- bytes.NewBuffer(s.Conn.buf.Bytes())
-		}
-	}
-
-	return nil
 }

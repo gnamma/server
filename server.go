@@ -14,6 +14,7 @@ type Options struct {
 	Name        string
 	Description string
 	Addr        string
+	FPS         float64
 
 	AssetsDir  string
 	AssetsAddr string
@@ -32,11 +33,16 @@ type Server struct {
 }
 
 func New(o Options) *Server {
+	if o.FPS == 0 {
+		o.FPS = 60
+	}
+
 	s := &Server{
 		Opts:   o,
 		Ready:  make(chan struct{}),
-		log:    log.New(os.Stdout, "server: ", logFlags),
 		Assets: NewAssetServer(o.AssetsAddr, o.AssetsDir),
+
+		log: log.New(os.Stdout, "server: ", logFlags),
 	}
 
 	s.Netw = &Networker{s: s}
@@ -53,13 +59,19 @@ func (s *Server) Listen() error {
 
 	go func() { s.Ready <- struct{}{} }()
 
+	go s.Room.StartUpdateLoop(s.Opts.FPS)
+
+	ids := uint(0)
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			return err
 		}
 
-		go s.Netw.Handle(conn)
+		go s.Netw.Handle(conn, ids)
+
+		ids += 1
 	}
 }
 
