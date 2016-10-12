@@ -33,12 +33,11 @@ func NewRoom(s *Server) *Room {
 	return r
 }
 
-func (r *Room) StartUpdateLoop(fps float64) {
-	wait := time.Second / time.Duration(fps)
+func (r *Room) StartUpdateLoop() {
+	wait := time.Second / time.Duration(r.s.Opts.WriteSpeed)
 	log.Println("Updating on an interval of:", wait)
 
 	for {
-		r.s.log.Println("Updating server...")
 		for _, p := range r.players {
 			p.Conn.Done()
 		}

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -32,25 +33,35 @@ func (n *Networker) Handle(conn net.Conn, id uint) {
 	c := NewComConn(rc)
 
 	for {
-		cc := c.Read()
-		com, err := cc.Com()
+		cc, err := c.Read()
 		if err != nil {
-			c.Raw.log.Println("Couldn't read command, closing connection:", err)
+			c.Raw.log.Println("Couldn't create child, closing connection:", err)
 			c.Raw.Close()
 			return
 		}
 
-		err = n.s.Room.Handle(com.Command, cc)
-		if err != nil {
-			c.Raw.log.Println("Couldn't handle com:", err)
-		}
+		go func(cc *ChildConn) {
+			com, err := cc.Com()
+			if err != nil {
+				c.Raw.log.Println("Couldn't read command, closing connection:", err)
+				c.Raw.Close()
+				return
+			}
+
+			err = n.s.Room.Handle(com.Command, cc)
+			if err != nil {
+				c.Raw.log.Println("Couldn't handle com:", err)
+			}
+
+		}(cc)
+
+		time.Sleep(time.Second / time.Duration(n.s.Opts.ReadSpeed))
 	}
 }
 
 type ChildConn struct {
 	buf *bytes.Buffer
-
-	p *ComConn
+	p   *ComConn
 }
 
 func NewChildConn(b *bytes.Buffer, p *ComConn) *ChildConn {
@@ -99,8 +110,6 @@ type ComConn struct {
 	delayers     []chan struct{}
 	delayersLock sync.RWMutex
 	sendLock     sync.RWMutex
-
-	main chan *bytes.Buffer
 }
 
 func NewComConn(c *Conn) *ComConn {
@@ -108,37 +117,27 @@ func NewComConn(c *Conn) *ComConn {
 		Raw: c,
 
 		delayers: make([]chan struct{}, 0),
-		main:     make(chan *bytes.Buffer),
 	}
-
-	go cc.ReadLoop()
 
 	return cc
 }
 
-func (c *ComConn) Read() *ChildConn {
-	buf := <-c.main
-
-	return NewChildConn(buf, c)
-}
-
-func (c *ComConn) ReadLoop() error {
-	for {
-		b, err := c.Raw.ReadRaw()
-		if err != nil {
-			c.log().Println("Couldn't read message:", err)
-			continue
-		}
-
-		c.log().Println("read:", b.String())
-		c.main <- b
-		c.log().Println("delivered to handler")
+func (c *ComConn) Read() (*ChildConn, error) {
+	buf, err := c.Raw.ReadRaw()
+	if err != nil {
+		return nil, err
 	}
+
+	return NewChildConn(buf, c), nil
 }
 
 // NOTE: Do note use in a configuration!
 func (c *ComConn) ExpectAndRead(cmd string, v Preparer) error {
-	cc := c.Read()
+	cc, err := c.Read()
+	if err != nil {
+		return err
+	}
+
 	com, err := cc.Com()
 	if err != nil {
 		return err
@@ -154,13 +153,13 @@ func (c *ComConn) ExpectAndRead(cmd string, v Preparer) error {
 }
 
 func (c *ComConn) Send(cmd string, v Preparer) error {
-	c.wait()
+	ch := c.wait()
 
 	c.sendLock.Lock()
-	c.log().Println("started sending")
 	err := c.Raw.Send(cmd, v)
-	c.log().Println("finished sending")
 	c.sendLock.Unlock()
+
+	ch <- struct{}{}
 
 	return err
 }
@@ -170,14 +169,16 @@ func (c *ComConn) Done() {
 
 	for _, ch := range c.delayers {
 		ch <- struct{}{}
+		<-ch
+		close(ch)
 	}
 
-	c.delayers = c.delayers[0:0] //make([]chan struct{}, 0)
+	c.delayers = c.delayers[0:0]
 
 	c.delayersLock.Unlock()
 }
 
-func (c *ComConn) wait() {
+func (c *ComConn) wait() chan struct{} {
 	c.delayersLock.Lock()
 	ch := make(chan struct{})
 
@@ -186,6 +187,8 @@ func (c *ComConn) wait() {
 	c.delayersLock.Unlock()
 
 	<-ch
+
+	return ch
 }
 
 func (c *ComConn) log() *log.Logger {
@@ -196,25 +199,32 @@ type Conn struct {
 	NConn net.Conn
 	ID    uint
 
-	log *log.Logger
+	connBuf  *bufio.Reader
+	connLock sync.RWMutex
+	log      *log.Logger
 }
 
 func (c *Conn) ReadRaw() (*bytes.Buffer, error) {
-	connBuf := bufio.NewReader(c.NConn)
+	if c.connBuf == nil {
+		c.connBuf = bufio.NewReader(c.NConn)
+	}
 
-	lenStr, err := connBuf.ReadString('\n')
+	c.connLock.Lock()
+	defer c.connLock.Unlock()
+
+	lenSli, err := c.connBuf.ReadSlice('\n')
 	if err != nil {
 		return nil, err
 	}
 
-	lenStr = strings.TrimSpace(lenStr)
-	l, err := strconv.Atoi(lenStr)
+	lenSli = bytes.TrimSpace(lenSli)
+	l, err := strconv.Atoi(string(lenSli))
 	if err != nil {
 		return nil, err
 	}
 
 	buf := make([]byte, l)
-	_, err = connBuf.Read(buf)
+	_, err = c.connBuf.Read(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -251,19 +261,24 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 		return err
 	}
 
-	c.log.Println("being sent:", string(out))
-
 	return c.SendRaw(bytes.NewBuffer(out))
 }
 
 func (c *Conn) SendRaw(r io.Reader) error {
-	buf := &bytes.Buffer{}
-	_, err := io.Copy(buf, r)
+	rBuf := &bytes.Buffer{}
+	_, err := io.Copy(rBuf, r)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.NConn.Write([]byte(fmt.Sprintf("%v\n", buf.Len())))
+	buf := &bytes.Buffer{}
+
+	_, err = buf.WriteString(fmt.Sprintf("%v\n", rBuf.Len()))
+	if err != nil {
+		return err
+	}
+
+	_, err = rBuf.WriteTo(buf)
 	if err != nil {
 		return err
 	}

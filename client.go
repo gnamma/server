@@ -14,18 +14,19 @@ type Client struct {
 	AssetsAddr string
 	Username   string
 
-	FPS float64
+	// ReadSpeed is the amount of times the client should read the server.
+	ReadSpeed float64
 
 	player *Player
 	conn   *ComConn
 }
 
 func (c *Client) UpdateLoop() {
-	if c.FPS == 0 {
-		c.FPS = 60
+	if c.ReadSpeed == 0 {
+		c.ReadSpeed = ReadSpeedDefault
 	}
 
-	wait := time.Second / time.Duration(c.FPS)
+	wait := time.Second / time.Duration(c.ReadSpeed)
 
 	for {
 		c.conn.Done()
@@ -33,7 +34,7 @@ func (c *Client) UpdateLoop() {
 	}
 }
 
-func (c *Client) Connect() error {
+func (c *Client) setup() error {
 	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return err
@@ -45,6 +46,15 @@ func (c *Client) Connect() error {
 	})
 
 	go c.UpdateLoop()
+
+	return nil
+}
+
+func (c *Client) Connect() error {
+	err := c.setup()
+	if err != nil {
+		return err
+	}
 
 	cr := ConnectRequest{
 		Username: c.Username,
@@ -111,7 +121,7 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-	conn := Conn{NConn: nc}
+	conn := Conn{NConn: nc, log: log.New(os.Stdout, "asset cli: ", logFlags)}
 	defer conn.Close()
 
 	err = conn.SendRawString(key)

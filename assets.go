@@ -38,14 +38,15 @@ func (as *AssetServer) Listen() error {
 			return err // Probably shouldn't break the server here...
 		}
 
-		err = as.Handle(Conn{NConn: conn, log: as.l})
+		c := &Conn{NConn: conn, log: as.l}
+		err = as.Handle(c)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func (as *AssetServer) Handle(conn Conn) error {
+func (as *AssetServer) Handle(conn *Conn) error {
 	keyBuf, err := conn.ReadRaw()
 	if err != nil {
 		return err

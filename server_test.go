@@ -84,6 +84,29 @@ func TestPing(t *testing.T) {
 	}
 }
 
+func TestPings(t *testing.T) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			t.Logf("sending #%d", i)
+
+			_, err := client.Ping()
+			if err != nil {
+				t.Fatal("Client could not ping server!")
+			}
+
+			t.Logf("got #%d", i)
+		}(i)
+	}
+
+	wg.Wait()
+}
+
 func TestNodes(t *testing.T) {
 	nodes := []Node{
 		{
@@ -111,18 +134,17 @@ func TestNodes(t *testing.T) {
 	for _, n := range nodes {
 		wg.Add(1)
 		go func(n Node) {
+			t.Log("sending:", n.Label)
 			defer wg.Done()
 
-			log.Println("registering node:", n)
 			err := client.RegisterNode(n)
-			log.Println("registered node:", n)
 			if err != nil {
 				t.Fatalf("Unable to register node '%s': %v", n.Label, err)
 			}
+
+			t.Log("got:", n.Label)
 		}(n)
 	}
 
 	wg.Wait()
-
-	log.Println("YOU'RE DONE!")
 }

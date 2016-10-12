@@ -6,6 +6,11 @@ import (
 	"os"
 )
 
+const (
+	ReadSpeedDefault  = 60
+	WriteSpeedDefault = 60
+)
+
 var (
 	logFlags int = log.Lshortfile
 )
@@ -14,7 +19,8 @@ type Options struct {
 	Name        string
 	Description string
 	Addr        string
-	FPS         float64
+	WriteSpeed  float64
+	ReadSpeed   float64
 
 	AssetsDir  string
 	AssetsAddr string
@@ -33,8 +39,12 @@ type Server struct {
 }
 
 func New(o Options) *Server {
-	if o.FPS == 0 {
-		o.FPS = 60
+	if o.WriteSpeed == 0 {
+		o.WriteSpeed = WriteSpeedDefault
+	}
+
+	if o.ReadSpeed == 0 {
+		o.ReadSpeed = ReadSpeedDefault
 	}
 
 	s := &Server{
@@ -59,7 +69,7 @@ func (s *Server) Listen() error {
 
 	go func() { s.Ready <- struct{}{} }()
 
-	go s.Room.StartUpdateLoop(s.Opts.FPS)
+	go s.Room.StartUpdateLoop()
 
 	ids := uint(0)
 
