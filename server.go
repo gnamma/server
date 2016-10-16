@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	ReadSpeedDefault  = 60
-	WriteSpeedDefault = 60
+	DefaultReadSpeed  = 60
+	DefaultWriteSpeed = 60
 )
 
 var (
@@ -40,11 +40,11 @@ type Server struct {
 
 func New(o Options) *Server {
 	if o.WriteSpeed == 0 {
-		o.WriteSpeed = WriteSpeedDefault
+		o.WriteSpeed = DefaultWriteSpeed
 	}
 
 	if o.ReadSpeed == 0 {
-		o.ReadSpeed = ReadSpeedDefault
+		o.ReadSpeed = DefaultReadSpeed
 	}
 
 	s := &Server{

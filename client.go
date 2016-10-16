@@ -23,7 +23,7 @@ type Client struct {
 
 func (c *Client) UpdateLoop() {
 	if c.ReadSpeed == 0 {
-		c.ReadSpeed = ReadSpeedDefault
+		c.ReadSpeed = DefaultReadSpeed
 	}
 
 	wait := time.Second / time.Duration(c.ReadSpeed)
@@ -132,13 +132,13 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 	return conn.ReadRaw()
 }
 
-func (c *Client) RegisterNode(n Node) error {
+func (c *Client) RegisterNode(n *Node) error {
 	if c.conn == nil {
 		return ErrClientNotConnected
 	}
 
 	err := c.conn.Send(RegisterNodeCmd, &RegisterNode{
-		Node: n,
+		Node: *n,
 		PID:  c.player.ID,
 	})
 	if err != nil {
@@ -151,7 +151,10 @@ func (c *Client) RegisterNode(n Node) error {
 		return err
 	}
 
-	c.player.Nodes[rn.NID] = &n
+	n.ID = rn.NID
+	n.PID = c.player.ID
+
+	c.player.Nodes[rn.NID] = n
 	c.player.nodeCount = rn.NID
 
 	return nil

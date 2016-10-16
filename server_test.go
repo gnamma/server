@@ -108,7 +108,7 @@ func TestPings(t *testing.T) {
 }
 
 func TestNodes(t *testing.T) {
-	nodes := []Node{
+	nodes := []*Node{
 		{
 			Type:     ArmNode,
 			Position: Point{1, 1, 0},
@@ -133,7 +133,7 @@ func TestNodes(t *testing.T) {
 
 	for _, n := range nodes {
 		wg.Add(1)
-		go func(n Node) {
+		go func(n *Node) {
 			t.Log("sending:", n.Label)
 			defer wg.Done()
 
