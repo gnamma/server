@@ -50,7 +50,7 @@ func (n *Networker) Handle(conn net.Conn, id uint) {
 
 			err = n.s.Room.Handle(com.Command, cc)
 			if err != nil {
-				c.Raw.log.Println("Couldn't handle com:", err)
+				c.Raw.log.Printf("Couldn't handle com (%s): %v", com.Command, err)
 			}
 
 		}(cc)
