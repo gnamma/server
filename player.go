@@ -40,6 +40,9 @@ func (p *Player) RegisterNode(n Node) (uint, error) {
 	p.nodesMap[id] = &n
 	p.nodeCount += 1
 
+	n.PID = p.ID
+	p.ID = id
+
 	p.nodesLock.Unlock()
 
 	return id, nil
@@ -56,7 +59,7 @@ type Node struct {
 }
 
 type Point struct {
-	X float64
-	Y float64
-	Z float64
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 }
