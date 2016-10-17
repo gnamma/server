@@ -46,13 +46,13 @@ func main() {
 			Type:     server.ArmNode,
 			Label:    "This is your arm, sis!",
 			Asset:    "box",
-			Rotation: server.Point{-1, 1, 0},
+			Position: server.Point{-1, 1, 0},
 		},
 		{
 			Type:     server.ArmNode,
 			Label:    "This is your arm, you!",
 			Asset:    "box",
-			Rotation: server.Point{1, 1, 0},
+			Position: server.Point{1, 1, 0},
 		},
 	}
 
@@ -78,7 +78,7 @@ func main() {
 }
 
 func move(nodes []*server.Node) {
-	speed := float64(math.Pi / 180) // Want to move 1 radian each iteration
+	speed := float64(math.Pi/180) * 5 // Want to move 1 radian each iteration
 	x := float64(0)
 
 	wait := time.Second / time.Duration(10)
@@ -91,9 +91,9 @@ func move(nodes []*server.Node) {
 
 			go func(n *server.Node) {
 				defer wg.Done()
-				n.Rotation.Z = math.Sin(x)
+				n.Position.Z = math.Sin(x)
 
-				log.Println("at:", n.Rotation.Z)
+				log.Println("at:", n.Position.Z)
 
 				err := client.UpdateNode(*n)
 				if err != nil {
