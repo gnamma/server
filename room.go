@@ -8,6 +8,8 @@ import (
 type Room struct {
 	*Dispatch
 
+	Broadcast chan Broadcast
+
 	s *Server
 
 	players     map[uint]*Player
@@ -16,8 +18,9 @@ type Room struct {
 
 func NewRoom(s *Server) *Room {
 	r := &Room{
-		s:       s,
-		players: make(map[uint]*Player),
+		s:         s,
+		players:   make(map[uint]*Player),
+		Broadcast: make(chan Broadcast),
 	}
 
 	r.Dispatch = &Dispatch{
@@ -29,6 +32,8 @@ func NewRoom(s *Server) *Room {
 			UpdateNodeCmd:         r.updateNode,
 		},
 	}
+
+	go r.broadcastLoop()
 
 	return r
 }
@@ -43,6 +48,18 @@ func (r *Room) StartUpdateLoop() {
 		}
 
 		time.Sleep(wait)
+	}
+}
+
+func (r *Room) broadcastLoop() {
+	for b := range r.Broadcast {
+		for _, p := range r.players {
+			err := p.Conn.Send(b.Cmd, b.Com)
+			if err != nil {
+				p.Conn.log().Printf("Error broadcasting %v (%v): %v", b.Cmd, b.Com, err)
+				continue
+			}
+		}
 	}
 }
 
@@ -65,6 +82,8 @@ func (r *Room) Join(u string, c *ChildConn) (*Player, error) {
 	}
 
 	r.players[p.ID] = p
+
+	c.log().Println("Help!", p.ID)
 
 	r.playerCount += 1
 
@@ -187,5 +206,15 @@ func (r *Room) updateNode(conn *ChildConn) error {
 	n.Position = un.Position
 	n.Rotation = un.Rotation
 
+	r.Broadcast <- Broadcast{
+		Cmd: UpdateNodeCmd,
+		Com: &un,
+	}
+
 	return nil
+}
+
+type Broadcast struct {
+	Cmd string
+	Com Preparer
 }

@@ -41,7 +41,7 @@ func (p *Player) RegisterNode(n Node) (uint, error) {
 	p.nodeCount += 1
 
 	n.PID = p.ID
-	p.ID = id
+	n.ID = id
 
 	p.nodesLock.Unlock()
 
