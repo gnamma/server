@@ -77,7 +77,7 @@ func (c *Client) Connect() error {
 	c.player = &Player{
 		ID:       cv.PlayerID,
 		Username: c.Username,
-		Nodes:    make(map[uint]*Node),
+		nodesMap: make(map[uint]*Node),
 	}
 
 	return nil
@@ -154,7 +154,7 @@ func (c *Client) RegisterNode(n *Node) error {
 	n.ID = rn.NID
 	n.PID = c.player.ID
 
-	c.player.Nodes[rn.NID] = n
+	c.player.nodesMap[rn.NID] = n
 	c.player.nodeCount = rn.NID
 
 	return nil

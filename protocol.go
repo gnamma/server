@@ -35,9 +35,10 @@ type ConnectRequest struct {
 type ConnectVerdict struct {
 	Communication
 
-	CanProceed bool   `json:"can_proceed"`
-	Message    string `json:"message"`
-	PlayerID   uint   `json:"player_id"`
+	CanProceed bool     `json:"can_proceed"`
+	Message    string   `json:"message"`
+	PlayerID   uint     `json:"player_id"`
+	Players    []Player `json:"players"`
 }
 
 type Ping struct {

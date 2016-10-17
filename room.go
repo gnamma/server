@@ -56,7 +56,7 @@ func (r *Room) Join(u string, c *ChildConn) (*Player, error) {
 	p := &Player{
 		Username: u,
 		ID:       r.playerCount + 1, // Don't increment straight away so that to prevent an overflow.
-		Nodes:    make(map[uint]*Node),
+		nodesMap: make(map[uint]*Node),
 		Conn:     c.Parent(),
 	}
 
@@ -108,6 +108,18 @@ func (r *Room) connectRequest(conn *ChildConn) error {
 	} else {
 		cv.PlayerID = p.ID
 		conn.log().Println("Connected player:", p)
+
+		var ps []Player
+
+		for _, p := range r.players {
+			if p.ID == cv.PlayerID {
+				continue
+			}
+
+			ps = append(ps, *p)
+		}
+
+		cv.Players = ps
 	}
 
 	return conn.Send(ConnectVerdictCmd, &cv)
@@ -167,7 +179,7 @@ func (r *Room) updateNode(conn *ChildConn) error {
 		return ErrPlayerDoesntExist
 	}
 
-	n, ok := p.Nodes[un.NID]
+	n, ok := p.nodesMap[un.NID]
 	if !ok {
 		return ErrNodeDoesntExist
 	}

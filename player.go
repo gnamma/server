@@ -10,12 +10,14 @@ const (
 )
 
 type Player struct {
-	ID       uint
-	Username string
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
 
-	Conn *ComConn
+	Conn *ComConn `json:"-"`
 
-	Nodes     map[uint]*Node
+	// TODO: Neaten up this whole system
+	Nodes     []*Node        `json:"nodes"`
+	nodesMap  map[uint]*Node // Map for quick access
 	nodesLock sync.RWMutex
 	nodeCount uint
 }
@@ -28,12 +30,14 @@ func (p *Player) RegisterNode(n Node) (uint, error) {
 	id := p.nodeCount + 1
 
 	p.nodesLock.Lock()
-	_, ok := p.Nodes[id]
+	_, ok := p.nodesMap[id]
 	if ok {
 		return 0, ErrNodeAlreadyExists
 	}
 
-	p.Nodes[id] = &n
+	p.Nodes = append(p.Nodes, &n)
+
+	p.nodesMap[id] = &n
 	p.nodeCount += 1
 
 	p.nodesLock.Unlock()
