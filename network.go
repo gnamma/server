@@ -199,9 +199,10 @@ type Conn struct {
 	NConn net.Conn
 	ID    uint
 
-	connBuf  *bufio.Reader
-	connLock sync.RWMutex
-	log      *log.Logger
+	connBuf   *bufio.Reader
+	connRLock sync.Mutex
+	connWLock sync.Mutex
+	log       *log.Logger
 }
 
 func (c *Conn) ReadRaw() (*bytes.Buffer, error) {
@@ -209,8 +210,8 @@ func (c *Conn) ReadRaw() (*bytes.Buffer, error) {
 		c.connBuf = bufio.NewReader(c.NConn)
 	}
 
-	c.connLock.Lock()
-	defer c.connLock.Unlock()
+	c.connRLock.Lock()
+	defer c.connRLock.Unlock()
 
 	lenSli, err := c.connBuf.ReadSlice('\n')
 	if err != nil {
@@ -224,10 +225,7 @@ func (c *Conn) ReadRaw() (*bytes.Buffer, error) {
 	}
 
 	buf := make([]byte, l)
-	_, err = c.connBuf.Read(buf)
-	if err != nil {
-		return nil, err
-	}
+	_, err = io.ReadFull(c.connBuf, buf)
 
 	return bytes.NewBuffer(buf), nil
 }
@@ -265,6 +263,9 @@ func (c *Conn) Send(cmd string, v Preparer) error {
 }
 
 func (c *Conn) SendRaw(r io.Reader) error {
+	c.connWLock.Lock()
+	defer c.connWLock.Unlock()
+
 	rBuf := &bytes.Buffer{}
 	_, err := io.Copy(rBuf, r)
 	if err != nil {

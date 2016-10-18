@@ -83,8 +83,6 @@ func (r *Room) Join(u string, c *ChildConn) (*Player, error) {
 
 	r.players[p.ID] = p
 
-	c.log().Println("Help!", p.ID)
-
 	r.playerCount += 1
 
 	return p, nil
