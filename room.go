@@ -44,6 +44,11 @@ func (r *Room) StartUpdateLoop() {
 
 	for {
 		for _, p := range r.players {
+			if p.Dead { // TODO: Handle this better
+				p.Conn.Raw.Close()
+				continue
+			}
+
 			p.Conn.Done()
 		}
 
@@ -54,9 +59,14 @@ func (r *Room) StartUpdateLoop() {
 func (r *Room) broadcastLoop() {
 	for b := range r.Broadcast {
 		for _, p := range r.players {
+			if p.Dead {
+				continue
+			}
+
 			err := p.Conn.Send(b.Cmd, b.Com)
 			if err != nil {
-				p.Conn.log().Printf("Error broadcasting %v (%v): %v", b.Cmd, b.Com, err)
+				p.Dead = true
+
 				continue
 			}
 		}
