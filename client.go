@@ -1,11 +1,12 @@
 package server
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"net"
 	"os"
+	"sync"
+	"time"
 )
 
 // Mainly for testing. Perhaps bots too? I don't know.
@@ -14,22 +15,91 @@ type Client struct {
 	AssetsAddr string
 	Username   string
 
+	// ReadSpeed is the amount of times the client should read the server.
+	ReadSpeed float64
+
 	player *Player
-	conn   *Session
+	conn   *ComConn
+
+	chans map[string]chan *ChildConn
 }
 
-func (c *Client) Connect() error {
+func (c *Client) readLoop() {
+	c.chans = make(map[string]chan *ChildConn)
+
+	for {
+		cc, err := c.conn.Read()
+		if err != nil {
+			c.conn.log().Println("Error in client read loop:", err)
+			continue
+		}
+
+		go func(cc *ChildConn) {
+			com, err := cc.Com()
+			if err != nil {
+				c.conn.log().Println("Error reading com:", err)
+				return
+			}
+
+			ch := c.populateChan(com.Command)
+
+			ch <- cc
+		}(cc)
+	}
+}
+
+func (c *Client) WaitFor(cmd string) *ChildConn {
+	ch := c.populateChan(cmd)
+
+	return <-ch
+}
+
+func (c *Client) populateChan(cmd string) chan *ChildConn {
+	ch, ok := c.chans[cmd]
+
+	if !ok {
+		c.chans[cmd] = make(chan *ChildConn)
+		ch = c.chans[cmd]
+	}
+
+	return ch
+}
+
+func (c *Client) UpdateLoop() {
+	go c.readLoop()
+
+	if c.ReadSpeed == 0 {
+		c.ReadSpeed = DefaultReadSpeed
+	}
+
+	wait := time.Second / time.Duration(c.ReadSpeed)
+
+	for {
+		c.conn.Done()
+		time.Sleep(wait)
+	}
+}
+
+func (c *Client) setup() error {
 	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return err
 	}
 
-	c.conn = &Session{
-		Conn: &Conn{
-			nc: conn,
-			l:  log.New(os.Stdout, "client: ", logFlags),
-		},
-		chans: make(map[string][]chan *bytes.Buffer),
+	c.conn = NewComConn(&Conn{
+		NConn: conn,
+		log:   log.New(os.Stdout, "client: ", logFlags),
+	})
+
+	go c.UpdateLoop()
+
+	return nil
+}
+
+func (c *Client) Connect() error {
+	err := c.setup()
+	if err != nil {
+		return err
 	}
 
 	cr := ConnectRequest{
@@ -41,7 +111,7 @@ func (c *Client) Connect() error {
 	}
 
 	cv := ConnectVerdict{}
-	err = c.conn.ExpectAndRead(ConnectVerdictCmd, &cv)
+	err = c.ExpectAndRead(ConnectVerdictCmd, &cv)
 	if err != nil {
 		return err
 	}
@@ -53,7 +123,7 @@ func (c *Client) Connect() error {
 	c.player = &Player{
 		ID:       cv.PlayerID,
 		Username: c.Username,
-		Nodes:    make(map[uint]*Node),
+		nodesMap: make(map[uint]*Node),
 	}
 
 	return nil
@@ -71,7 +141,7 @@ func (c *Client) Ping() (Pong, error) {
 		return po, err
 	}
 
-	err = c.conn.ExpectAndRead(PongCmd, &po)
+	err = c.ExpectAndRead(PongCmd, &po)
 	return po, err
 }
 
@@ -87,7 +157,7 @@ func (c *Client) Environment() (EnvironmentPackage, error) {
 		return ep, err
 	}
 
-	err = c.conn.ExpectAndRead(EnvironmentPackageCmd, &ep)
+	err = c.ExpectAndRead(EnvironmentPackageCmd, &ep)
 	return ep, err
 }
 
@@ -97,7 +167,7 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-	conn := Conn{nc: nc}
+	conn := Conn{NConn: nc, log: log.New(os.Stdout, "asset cli: ", logFlags)}
 	defer conn.Close()
 
 	err = conn.SendRawString(key)
@@ -108,13 +178,55 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 	return conn.ReadRaw()
 }
 
-func (c *Client) RegisterNode(n Node) error {
+func (c *Client) RegisterNodes(nodes []*Node) error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	var wg sync.WaitGroup
+	ch := make(chan error)
+
+	for _, n := range nodes {
+		wg.Add(1)
+
+		go func(n *Node) {
+			defer wg.Done()
+
+			err := c.RegisterNode(n)
+			if err != nil {
+				log.Println("Unable to register node: ", err)
+				ch <- err
+				return
+			}
+		}(n)
+	}
+
+	wg.Wait()
+
+	if len(ch) > 0 {
+		return <-ch
+	}
+
+	return c.RegisteredAllNodes()
+}
+
+func (c *Client) RegisteredAllNodes() error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	return c.conn.Send(RegisteredAllNodesCmd, &RegisteredAllNodes{
+		PID: c.player.ID,
+	})
+}
+
+func (c *Client) RegisterNode(n *Node) error {
 	if c.conn == nil {
 		return ErrClientNotConnected
 	}
 
 	err := c.conn.Send(RegisterNodeCmd, &RegisterNode{
-		Node: n,
+		Node: *n,
 		PID:  c.player.ID,
 	})
 	if err != nil {
@@ -122,12 +234,15 @@ func (c *Client) RegisterNode(n Node) error {
 	}
 
 	rn := RegisteredNode{}
-	err = c.conn.ExpectAndRead(RegisteredNodeCmd, &rn)
+	err = c.ExpectAndRead(RegisteredNodeCmd, &rn)
 	if err != nil {
 		return err
 	}
 
-	c.player.Nodes[rn.NID] = &n
+	n.ID = rn.NID
+	n.PID = c.player.ID
+
+	c.player.nodesMap[rn.NID] = n
 	c.player.nodeCount = rn.NID
 
 	return nil
@@ -146,37 +261,8 @@ func (c *Client) UpdateNode(n Node) error {
 	})
 }
 
-type Session struct {
-	*Conn
+func (c *Client) ExpectAndRead(cmd string, v Preparer) error {
+	cc := c.WaitFor(cmd)
 
-	chans map[string][]chan *bytes.Buffer
-}
-
-func (s *Session) ReadWait(cmd string, v Preparer) error {
-	c := make(chan *bytes.Buffer)
-
-	s.chans[cmd] = append(s.chans[cmd], c)
-
-	buf := <-c
-
-	conn := Conn{
-		buf: buf,
-	}
-
-	return conn.Read(v)
-}
-
-func (s *Session) ReadLoop() error {
-	for {
-		com, err := s.Conn.ReadCom()
-		if err != nil { // TODO: Account for raw coms, like file transfers
-			return err
-		}
-
-		for _, c := range s.chans[com.Command] {
-			c <- bytes.NewBuffer(s.Conn.buf.Bytes())
-		}
-	}
-
-	return nil
+	return cc.Read(v)
 }

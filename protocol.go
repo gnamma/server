@@ -12,6 +12,8 @@ const (
 	RegisterNodeCmd       = "register_node"
 	RegisteredNodeCmd     = "registered_node"
 	UpdateNodeCmd         = "update_node"
+	RegisteredAllNodesCmd = "registered_all_nodes"
+	JoinRoomCmd           = "join_room"
 	AssetServerRequestCmd = "asset_server_request"
 	AssetServerAddressCmd = "asset_server_address"
 )
@@ -35,9 +37,10 @@ type ConnectRequest struct {
 type ConnectVerdict struct {
 	Communication
 
-	CanProceed bool   `json:"can_proceed"`
-	Message    string `json:"message"`
-	PlayerID   uint   `json:"player_id"`
+	CanProceed bool     `json:"can_proceed"`
+	Message    string   `json:"message"`
+	PlayerID   uint     `json:"player_id"`
+	Players    []Player `json:"players"`
 }
 
 type Ping struct {
@@ -77,11 +80,29 @@ type RegisteredNode struct {
 type UpdateNode struct {
 	Communication
 
-	PID uint
-	NID uint
+	PID uint `json:"pid"`
+	NID uint `json:"nid"`
 
-	Position Point
-	Rotation Point
+	Position Point `json:"position"`
+	Rotation Point `json:"rotation"`
+}
+
+type RegisteredAllNodes struct {
+	Communication
+
+	PID uint `json:"pid"`
+}
+
+type JoinRoom struct {
+	Communication
+
+	Player Player `json:"player"`
+}
+
+type LeaveRoom struct {
+	Communication
+
+	PID uint `json:"pid"`
 }
 
 type AssetServerRequest struct {

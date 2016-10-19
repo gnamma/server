@@ -1,9 +1,14 @@
 package server
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 type Room struct {
 	*Dispatch
+
+	Broadcast chan Broadcast
 
 	s *Server
 
@@ -13,8 +18,9 @@ type Room struct {
 
 func NewRoom(s *Server) *Room {
 	r := &Room{
-		s:       s,
-		players: make(map[uint]*Player),
+		s:         s,
+		players:   make(map[uint]*Player),
+		Broadcast: make(chan Broadcast),
 	}
 
 	r.Dispatch = &Dispatch{
@@ -24,10 +30,61 @@ func NewRoom(s *Server) *Room {
 			EnvironmentRequestCmd: r.environmentRequest,
 			RegisterNodeCmd:       r.registerNode,
 			UpdateNodeCmd:         r.updateNode,
+			RegisteredAllNodesCmd: r.registeredAllNodes,
 		},
 	}
 
+	go r.broadcastLoop()
+
 	return r
+}
+
+func (r *Room) StartUpdateLoop() {
+	wait := time.Second / time.Duration(r.s.Opts.WriteSpeed)
+	log.Println("Updating on an interval of:", wait)
+
+	for {
+		for _, p := range r.players {
+			if p.Dead { // TODO: Handle this better
+				p.Conn.Raw.Close()
+				continue
+			}
+
+			p.Conn.Done()
+		}
+
+		time.Sleep(wait)
+	}
+}
+
+func (r *Room) broadcastLoop() {
+	for b := range r.Broadcast {
+		if b.Cmd != UpdateNodeCmd {
+			log.Println(b.Cmd)
+		}
+
+		for _, p := range r.players {
+			if p.Dead {
+				continue
+			}
+
+			err := p.Conn.Send(b.Cmd, b.Com)
+			if err != nil {
+				p.Dead = true
+
+				continue
+			}
+		}
+	}
+}
+
+func (r *Room) Player(pid uint) (*Player, error) {
+	p, ok := r.players[pid]
+	if !ok {
+		return nil, ErrPlayerDoesntExist
+	}
+
+	return p, nil
 }
 
 func (r *Room) CanJoin(p *Player) bool {
@@ -36,11 +93,12 @@ func (r *Room) CanJoin(p *Player) bool {
 	return p.Valid() && !ok
 }
 
-func (r *Room) Join(u string) (*Player, error) {
+func (r *Room) Join(u string, c *ChildConn) (*Player, error) {
 	p := &Player{
 		Username: u,
 		ID:       r.playerCount + 1, // Don't increment straight away so that to prevent an overflow.
-		Nodes:    make(map[uint]*Node),
+		nodesMap: make(map[uint]*Node),
+		Conn:     c.Parent(),
 	}
 
 	if !r.CanJoin(p) {
@@ -54,7 +112,7 @@ func (r *Room) Join(u string) (*Player, error) {
 	return p, nil
 }
 
-func (r *Room) ping(conn Conn) error {
+func (r *Room) ping(conn *ChildConn) error {
 	pi := Ping{}
 
 	err := conn.Read(&pi)
@@ -69,7 +127,7 @@ func (r *Room) ping(conn Conn) error {
 	return conn.Send(PongCmd, &po)
 }
 
-func (r *Room) connectRequest(conn Conn) error {
+func (r *Room) connectRequest(conn *ChildConn) error {
 	c := ConnectRequest{}
 
 	err := conn.Read(&c)
@@ -82,7 +140,7 @@ func (r *Room) connectRequest(conn Conn) error {
 		Message:    "Welcome to the server!",
 	}
 
-	p, err := r.Join(c.Username)
+	p, err := r.Join(c.Username, conn)
 	if err != nil {
 		cv = ConnectVerdict{
 			CanProceed: false,
@@ -90,14 +148,25 @@ func (r *Room) connectRequest(conn Conn) error {
 		}
 	} else {
 		cv.PlayerID = p.ID
-	}
+		conn.log().Println("Connected player:", p)
 
-	log.Println("Connected player:", p)
+		var ps []Player
+
+		for _, p := range r.players {
+			if p.ID == cv.PlayerID {
+				continue
+			}
+
+			ps = append(ps, *p)
+		}
+
+		cv.Players = ps
+	}
 
 	return conn.Send(ConnectVerdictCmd, &cv)
 }
 
-func (r *Room) environmentRequest(conn Conn) error {
+func (r *Room) environmentRequest(conn *ChildConn) error {
 	er := EnvironmentRequest{}
 
 	err := conn.Read(&er)
@@ -115,7 +184,7 @@ func (r *Room) environmentRequest(conn Conn) error {
 	return conn.Send(EnvironmentPackageCmd, &ep)
 }
 
-func (r *Room) registerNode(conn Conn) error {
+func (r *Room) registerNode(conn *ChildConn) error {
 	rn := RegisterNode{}
 
 	err := conn.Read(&rn)
@@ -138,7 +207,7 @@ func (r *Room) registerNode(conn Conn) error {
 	})
 }
 
-func (r *Room) updateNode(conn Conn) error {
+func (r *Room) updateNode(conn *ChildConn) error {
 	un := UpdateNode{}
 
 	err := conn.Read(&un)
@@ -146,12 +215,12 @@ func (r *Room) updateNode(conn Conn) error {
 		return err
 	}
 
-	p, ok := r.players[un.PID]
-	if !ok {
-		return ErrPlayerDoesntExist
+	p, err := r.Player(un.PID)
+	if err != nil {
+		return err
 	}
 
-	n, ok := p.Nodes[un.NID]
+	n, ok := p.nodesMap[un.NID]
 	if !ok {
 		return ErrNodeDoesntExist
 	}
@@ -159,5 +228,40 @@ func (r *Room) updateNode(conn Conn) error {
 	n.Position = un.Position
 	n.Rotation = un.Rotation
 
+	r.Broadcast <- Broadcast{
+		Cmd: UpdateNodeCmd,
+		Com: &un,
+	}
+
 	return nil
+}
+
+func (r *Room) registeredAllNodes(conn *ChildConn) error {
+	ran := RegisteredAllNodes{}
+
+	err := conn.Read(&ran)
+	if err != nil {
+		return err
+	}
+
+	p, err := r.Player(ran.PID)
+	if err != nil {
+		return err
+	}
+
+	r.Broadcast <- Broadcast{
+		Cmd: JoinRoomCmd,
+		Com: &JoinRoom{
+			Player: *p,
+		},
+		From: p.ID,
+	}
+
+	return nil
+}
+
+type Broadcast struct {
+	Cmd  string
+	Com  Preparer
+	From uint
 }

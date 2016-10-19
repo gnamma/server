@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log"
 	"os"
+	"sync"
 	"testing"
 )
 
@@ -83,13 +84,36 @@ func TestPing(t *testing.T) {
 	}
 }
 
+func TestPings(t *testing.T) {
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+
+		go func(i int) {
+			defer wg.Done()
+
+			t.Logf("sending #%d", i)
+
+			_, err := client.Ping()
+			if err != nil {
+				t.Fatal("Client could not ping server!")
+			}
+
+			t.Logf("got #%d", i)
+		}(i)
+	}
+
+	wg.Wait()
+}
+
 func TestNodes(t *testing.T) {
-	nodes := []Node{
+	nodes := []*Node{
 		{
-			Type:     HeadNode,
-			Position: Point{0, 2, 0},
+			Type:     ArmNode,
+			Position: Point{1, 1, 0},
 			Rotation: Point{},
-			Label:    "your head!",
+			Label:    "your right arm!",
 		},
 		{
 			Type:     ArmNode,
@@ -98,17 +122,15 @@ func TestNodes(t *testing.T) {
 			Label:    "your left arm!",
 		},
 		{
-			Type:     ArmNode,
-			Position: Point{1, 1, 0},
+			Type:     HeadNode,
+			Position: Point{0, 2, 0},
 			Rotation: Point{},
-			Label:    "your right arm!",
+			Label:    "your head!",
 		},
 	}
 
-	for _, n := range nodes {
-		err := client.RegisterNode(n)
-		if err != nil {
-			t.Fatalf("Unable to register node '%s': %v", n.Label, err)
-		}
+	err := client.RegisterNodes(nodes)
+	if err != nil {
+		log.Fatal("Couldn't register nodes:", err)
 	}
 }

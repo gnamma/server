@@ -1,5 +1,7 @@
 package server
 
+import "sync"
+
 type NodeType uint
 
 const (
@@ -8,10 +10,16 @@ const (
 )
 
 type Player struct {
-	ID       uint
-	Username string
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
 
-	Nodes     map[uint]*Node
+	Conn *ComConn `json:"-"`
+	Dead bool     `json:"-"`
+
+	// TODO: Neaten up this whole system
+	Nodes     []*Node        `json:"nodes"`
+	nodesMap  map[uint]*Node // Map for quick access
+	nodesLock sync.RWMutex
 	nodeCount uint
 }
 
@@ -22,13 +30,21 @@ func (p *Player) Valid() bool {
 func (p *Player) RegisterNode(n Node) (uint, error) {
 	id := p.nodeCount + 1
 
-	_, ok := p.Nodes[id]
+	p.nodesLock.Lock()
+	_, ok := p.nodesMap[id]
 	if ok {
 		return 0, ErrNodeAlreadyExists
 	}
 
-	p.Nodes[id] = &n
+	p.Nodes = append(p.Nodes, &n)
+
+	p.nodesMap[id] = &n
 	p.nodeCount += 1
+
+	n.PID = p.ID
+	n.ID = id
+
+	p.nodesLock.Unlock()
 
 	return id, nil
 }
@@ -44,7 +60,7 @@ type Node struct {
 }
 
 type Point struct {
-	X float64
-	Y float64
-	Z float64
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 }
