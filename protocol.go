@@ -12,6 +12,8 @@ const (
 	RegisterNodeCmd       = "register_node"
 	RegisteredNodeCmd     = "registered_node"
 	UpdateNodeCmd         = "update_node"
+	RegisteredAllNodesCmd = "registered_all_nodes"
+	JoinRoomCmd           = "join_room"
 	AssetServerRequestCmd = "asset_server_request"
 	AssetServerAddressCmd = "asset_server_address"
 )
@@ -83,6 +85,24 @@ type UpdateNode struct {
 
 	Position Point `json:"position"`
 	Rotation Point `json:"rotation"`
+}
+
+type RegisteredAllNodes struct {
+	Communication
+
+	PID uint `json:"pid"`
+}
+
+type JoinRoom struct {
+	Communication
+
+	Player Player `json:"player"`
+}
+
+type LeaveRoom struct {
+	Communication
+
+	PID uint `json:"pid"`
 }
 
 type AssetServerRequest struct {

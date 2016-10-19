@@ -33,8 +33,6 @@ func main() {
 		return
 	}
 
-	log.Println(*client)
-
 	var nodes = []*server.Node{
 		{
 			Type:     server.HeadNode,
@@ -56,33 +54,24 @@ func main() {
 		},
 	}
 
-	var wg sync.WaitGroup
+	log.Println("Registering nodes...")
 
-	for _, n := range nodes {
-		wg.Add(1)
-
-		go func(n *server.Node) {
-			defer wg.Done()
-
-			err := client.RegisterNode(n)
-			if err != nil {
-				log.Println("Unable to register node: ", err)
-				return
-			}
-		}(n)
+	err = client.RegisterNodes(nodes)
+	if err != nil {
+		log.Fatal("Could not register nodes:", err)
+		return
 	}
-
-	wg.Wait()
 
 	move(nodes)
 }
 
 func move(nodes []*server.Node) {
-	speed := float64(math.Pi/180) * 5 // Want to move 1 radian each iteration
+	speed := float64(math.Pi/180) * 1 // Want to move 1 radian each iteration
 	x := float64(0)
 
-	wait := time.Second / time.Duration(10)
+	wait := time.Second / time.Duration(60)
 
+	log.Println("Updating nodes")
 	for {
 		var wg sync.WaitGroup
 
@@ -92,8 +81,6 @@ func move(nodes []*server.Node) {
 			go func(n *server.Node) {
 				defer wg.Done()
 				n.Position.Z = math.Sin(x)
-
-				log.Println("at:", n.Position.Z)
 
 				err := client.UpdateNode(*n)
 				if err != nil {

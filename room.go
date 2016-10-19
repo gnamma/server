@@ -30,6 +30,7 @@ func NewRoom(s *Server) *Room {
 			EnvironmentRequestCmd: r.environmentRequest,
 			RegisterNodeCmd:       r.registerNode,
 			UpdateNodeCmd:         r.updateNode,
+			RegisteredAllNodesCmd: r.registeredAllNodes,
 		},
 	}
 
@@ -58,6 +59,10 @@ func (r *Room) StartUpdateLoop() {
 
 func (r *Room) broadcastLoop() {
 	for b := range r.Broadcast {
+		if b.Cmd != UpdateNodeCmd {
+			log.Println(b.Cmd)
+		}
+
 		for _, p := range r.players {
 			if p.Dead {
 				continue
@@ -71,6 +76,15 @@ func (r *Room) broadcastLoop() {
 			}
 		}
 	}
+}
+
+func (r *Room) Player(pid uint) (*Player, error) {
+	p, ok := r.players[pid]
+	if !ok {
+		return nil, ErrPlayerDoesntExist
+	}
+
+	return p, nil
 }
 
 func (r *Room) CanJoin(p *Player) bool {
@@ -201,9 +215,9 @@ func (r *Room) updateNode(conn *ChildConn) error {
 		return err
 	}
 
-	p, ok := r.players[un.PID]
-	if !ok {
-		return ErrPlayerDoesntExist
+	p, err := r.Player(un.PID)
+	if err != nil {
+		return err
 	}
 
 	n, ok := p.nodesMap[un.NID]
@@ -222,7 +236,32 @@ func (r *Room) updateNode(conn *ChildConn) error {
 	return nil
 }
 
+func (r *Room) registeredAllNodes(conn *ChildConn) error {
+	ran := RegisteredAllNodes{}
+
+	err := conn.Read(&ran)
+	if err != nil {
+		return err
+	}
+
+	p, err := r.Player(ran.PID)
+	if err != nil {
+		return err
+	}
+
+	r.Broadcast <- Broadcast{
+		Cmd: JoinRoomCmd,
+		Com: &JoinRoom{
+			Player: *p,
+		},
+		From: p.ID,
+	}
+
+	return nil
+}
+
 type Broadcast struct {
-	Cmd string
-	Com Preparer
+	Cmd  string
+	Com  Preparer
+	From uint
 }

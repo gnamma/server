@@ -129,22 +129,8 @@ func TestNodes(t *testing.T) {
 		},
 	}
 
-	var wg sync.WaitGroup
-
-	for _, n := range nodes {
-		wg.Add(1)
-		go func(n *Node) {
-			t.Log("sending:", n.Label)
-			defer wg.Done()
-
-			err := client.RegisterNode(n)
-			if err != nil {
-				t.Fatalf("Unable to register node '%s': %v", n.Label, err)
-			}
-
-			t.Log("got:", n.Label)
-		}(n)
+	err := client.RegisterNodes(nodes)
+	if err != nil {
+		log.Fatal("Couldn't register nodes:", err)
 	}
-
-	wg.Wait()
 }

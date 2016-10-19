@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -175,6 +176,48 @@ func (c *Client) Asset(key string) (io.Reader, error) {
 	}
 
 	return conn.ReadRaw()
+}
+
+func (c *Client) RegisterNodes(nodes []*Node) error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	var wg sync.WaitGroup
+	ch := make(chan error)
+
+	for _, n := range nodes {
+		wg.Add(1)
+
+		go func(n *Node) {
+			defer wg.Done()
+
+			err := c.RegisterNode(n)
+			if err != nil {
+				log.Println("Unable to register node: ", err)
+				ch <- err
+				return
+			}
+		}(n)
+	}
+
+	wg.Wait()
+
+	if len(ch) > 0 {
+		return <-ch
+	}
+
+	return c.RegisteredAllNodes()
+}
+
+func (c *Client) RegisteredAllNodes() error {
+	if c.conn == nil {
+		return ErrClientNotConnected
+	}
+
+	return c.conn.Send(RegisteredAllNodesCmd, &RegisteredAllNodes{
+		PID: c.player.ID,
+	})
 }
 
 func (c *Client) RegisterNode(n *Node) error {
