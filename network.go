@@ -131,7 +131,7 @@ func (c *ComConn) Read() (*ChildConn, error) {
 	return NewChildConn(buf, c), nil
 }
 
-// NOTE: Do note use in a configuration!
+// NOTE: Do note use in a concurrent configuration!
 func (c *ComConn) ExpectAndRead(cmd string, v Preparer) error {
 	cc, err := c.Read()
 	if err != nil {
