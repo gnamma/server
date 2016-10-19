@@ -25,8 +25,6 @@ type Client struct {
 }
 
 func (c *Client) readLoop() {
-	c.chans = make(map[string]chan *ChildConn)
-
 	for {
 		cc, err := c.conn.Read()
 		if err != nil {
@@ -81,6 +79,8 @@ func (c *Client) UpdateLoop() {
 }
 
 func (c *Client) setup() error {
+	c.chans = make(map[string]chan *ChildConn)
+
 	conn, err := net.Dial("tcp", c.Addr)
 	if err != nil {
 		return err
