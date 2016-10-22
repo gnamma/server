@@ -14,6 +14,7 @@ const (
 	UpdateNodeCmd         = "update_node"
 	RegisteredAllNodesCmd = "registered_all_nodes"
 	JoinRoomCmd           = "join_room"
+	LeaveRoomCmd          = "leave_room"
 	AssetServerRequestCmd = "asset_server_request"
 	AssetServerAddressCmd = "asset_server_address"
 )

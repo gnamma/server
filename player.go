@@ -14,7 +14,6 @@ type Player struct {
 	Username string `json:"username"`
 
 	Conn *ComConn `json:"-"`
-	Dead bool     `json:"-"`
 
 	// TODO: Neaten up this whole system
 	Nodes     []*Node        `json:"nodes"`
