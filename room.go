@@ -44,13 +44,20 @@ func (r *Room) StartUpdateLoop() {
 	log.Println("Updating on an interval of:", wait)
 
 	for {
-		for _, p := range r.players {
-			if p.Dead { // TODO: Handle this better
-				p.Conn.Raw.Close()
-				continue
-			}
-
+		for k, p := range r.players {
 			p.Conn.Done()
+
+			if p.Conn.Closed {
+				log.Println("Hey we're closing!")
+				r.Broadcast <- Broadcast{
+					Cmd: LeaveRoomCmd,
+					Com: &LeaveRoom{PID: p.ID},
+				}
+
+				log.Println("CLosed!")
+
+				delete(r.players, k)
+			}
 		}
 
 		time.Sleep(wait)
@@ -58,23 +65,31 @@ func (r *Room) StartUpdateLoop() {
 }
 
 func (r *Room) broadcastLoop() {
-	for b := range r.Broadcast {
+	for {
+		b := <-r.Broadcast
+
 		if b.Cmd != UpdateNodeCmd {
 			log.Println(b.Cmd)
 		}
 
 		for _, p := range r.players {
-			if p.Dead {
-				continue
-			}
+			go func(p *Player) { // This is not going to garbage collect well...
+				if p.Conn.Closed {
+					return
+				}
 
-			err := p.Conn.Send(b.Cmd, b.Com)
-			if err != nil {
-				p.Dead = true
+				log.Println("Sending...")
+				err := p.Conn.Send(b.Cmd, b.Com)
+				log.Println("Sent!")
+				if err != nil {
+					p.Conn.Close()
 
-				continue
-			}
+					return
+				}
+			}(p)
 		}
+
+		log.Println("Got to the end of this broadcast!")
 	}
 }
 

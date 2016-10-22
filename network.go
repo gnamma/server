@@ -33,18 +33,23 @@ func (n *Networker) Handle(conn net.Conn, id uint) {
 	c := NewComConn(rc)
 
 	for {
+		if c.Closed {
+			return
+		}
+
 		cc, err := c.Read()
 		if err != nil {
-			c.Raw.log.Println("Couldn't create child, closing connection:", err)
-			c.Raw.Close()
+			c.Raw.log.Println("Disconnecting client...")
+
+			c.Close()
 			return
 		}
 
 		go func(cc *ChildConn) {
 			com, err := cc.Com()
 			if err != nil {
-				c.Raw.log.Println("Couldn't read command, closing connection:", err)
-				c.Raw.Close()
+				c.Raw.log.Println("Couldn't read command, disconnecting client:", err)
+				c.Close()
 				return
 			}
 
@@ -52,7 +57,6 @@ func (n *Networker) Handle(conn net.Conn, id uint) {
 			if err != nil {
 				c.Raw.log.Printf("Couldn't handle com (%s): %v", com.Command, err)
 			}
-
 		}(cc)
 
 		time.Sleep(time.Second / time.Duration(n.s.Opts.ReadSpeed))
@@ -105,7 +109,8 @@ func (cc *ChildConn) log() *log.Logger {
 }
 
 type ComConn struct {
-	Raw *Conn
+	Raw    *Conn
+	Closed bool
 
 	delayers     []chan struct{}
 	delayersLock sync.RWMutex
@@ -123,6 +128,10 @@ func NewComConn(c *Conn) *ComConn {
 }
 
 func (c *ComConn) Read() (*ChildConn, error) {
+	if c.Closed {
+		return nil, ErrClientDisconnected
+	}
+
 	buf, err := c.Raw.ReadRaw()
 	if err != nil {
 		return nil, err
@@ -153,6 +162,10 @@ func (c *ComConn) ExpectAndRead(cmd string, v Preparer) error {
 }
 
 func (c *ComConn) Send(cmd string, v Preparer) error {
+	if c.Closed {
+		return ErrClientDisconnected
+	}
+
 	ch := c.wait()
 
 	c.sendLock.Lock()
@@ -176,6 +189,13 @@ func (c *ComConn) Done() {
 	c.delayers = c.delayers[0:0]
 
 	c.delayersLock.Unlock()
+}
+
+func (c *ComConn) Close() {
+	c.Raw.Close()
+	c.Closed = true
+
+	c.Done()
 }
 
 func (c *ComConn) wait() chan struct{} {
